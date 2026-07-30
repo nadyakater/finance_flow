@@ -5,6 +5,7 @@ function Login({ onLogin }) {
   const [password, setPassword] = useState("");
 
   // 1.GÜN - E-posta ve şifre alanlarından oluşan giriş formu oluşturuldu.
+  // deneme yorum satırı
   const handleSubmit = (event) => {
     event.preventDefault();
 
