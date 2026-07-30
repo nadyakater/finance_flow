@@ -1,38 +1,85 @@
+/* 1.GÜN - Giriş ve ana sayfa için beyaz arka planlı, pembe tonlarda tasarım oluşturuldu. */
+
+* {
+  box-sizing: border-box;
+}
+
 .App {
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #ffffff;
+}
+
+.login-card,
+.welcome-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 35px;
+  border: 1px solid #f8bbd0;
+  border-radius: 16px;
+  background-color: #fff5f8;
+  box-shadow: 0 8px 24px rgba(233, 30, 99, 0.12);
+}
+
+.page-title,
+.welcome-title {
+  margin: 0 0 10px;
+  color: #d81b60;
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.page-description {
+  margin-bottom: 25px;
+  color: #666666;
+  text-align: center;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.form-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #880e4f;
+  font-weight: 600;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+.form-input {
+  width: 100%;
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid #f48fb1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  font-size: 15px;
+  outline: none;
 }
 
-.App-link {
-  color: #61dafb;
+.form-input:focus {
+  border-color: #d81b60;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.login-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background-color: #e91e63;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background-color: #c2185b;
+}
+
+.welcome-card {
+  text-align: center;
 }

@@ -1,13 +1,15 @@
+/* 1.GÜN - Projenin bütün sayfalarında aynı yazı tipi kullanılacak şekilde genel stil oluşturuldu. */
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background-color: #ffffff;
+  color: #333333;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }

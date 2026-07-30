@@ -1,23 +1,25 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from "react";
+
+import "./App.css";
+
+import Login from "./pages/Login";
+import Anasayfa from "./pages/Anasayfa";
 
 function App() {
+  // 1.GÜN - Giriş sayfası ile ana sayfa arasındaki basit geçiş oluşturuldu.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      {isLoggedIn ? (
+        <Anasayfa />
+      ) : (
+        <Login onLogin={handleLogin} />
+      )}
     </div>
   );
 }
