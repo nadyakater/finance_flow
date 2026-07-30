@@ -1,58 +1,53 @@
-// src/App.js
+import { useEffect } from "react";
 
-import { useEffect, useState } from "react";
-
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useDispatch, useSelector } from "react-redux";
 
 import "./App.css";
 
-import { auth } from "./firebase";
+import { startAuthSubscription } from "./features/auth/application/authSubscription";
 
-import Login from "./pages/Login";
+import {
+  selectAuthInitialized,
+  selectCurrentUser,
+} from "./features/auth/presentation/authSelectors";
+
 import Anasayfa from "./pages/Anasayfa";
+import Login from "./pages/Login";
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useDispatch();
 
-  // 1.GÜN - Firebase oturumu kontrol edilerek giriş durumu takip edildi.
+  const currentUser = useSelector(selectCurrentUser);
+  const isInitialized = useSelector(
+    selectAuthInitialized,
+  );
+
+  // 1.GÜN - Uygulama açıldığında Firebase oturum kontrolü başlatıldı.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setIsLoading(false);
-    });
+    const unsubscribe = dispatch(
+      startAuthSubscription(),
+    );
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [dispatch]);
 
-  // 1.GÜN - Firebase üzerinden güvenli çıkış işlemi oluşturuldu.
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Çıkış hatası:", error);
-      alert("Çıkış yapılırken bir hata oluştu.");
-    }
-  };
-
-  if (isLoading) {
+  if (!isInitialized) {
     return (
       <div className="page-container">
-        <p className="page-description">Yükleniyor...</p>
+        <p className="page-description">
+          Yükleniyor...
+        </p>
       </div>
     );
   }
 
   return (
     <div className="App">
-      {currentUser ? (
-        <Anasayfa
-          email={currentUser.email}
-          onLogout={handleLogout}
-        />
-      ) : (
-        <Login />
-      )}
+      {currentUser ? <Anasayfa /> : <Login />}
     </div>
   );
 }

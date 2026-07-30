@@ -1,24 +1,28 @@
-// src/pages/Login.jsx
-
 import { useState } from "react";
 
-import { signInWithEmailAndPassword } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { useDispatch, useSelector } from "react-redux";
 
-import { auth, db } from "../firebase";
+import { loginUser } from "../features/auth/application/authThunks";
+
+import {
+  selectAuthError,
+  selectAuthStatus,
+} from "../features/auth/presentation/authSelectors";
+
+import { clearAuthError } from "../features/auth/presentation/authSlice";
 
 function Login() {
+  const dispatch = useDispatch();
+
+  const authStatus = useSelector(selectAuthStatus);
+  const authError = useSelector(selectAuthError);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // 1.GÜN - E-posta ve şifre ile Firebase giriş işlemi oluşturuldu.
+  const isLoggingIn = authStatus === "loading";
+
+  // 1.GÜN - Giriş formu Redux thunk ile Firebase giriş işlemine bağlandı.
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -29,46 +33,27 @@ function Login() {
       return;
     }
 
-    try {
-      setIsLoggingIn(true);
-
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        cleanEmail,
+    await dispatch(
+      loginUser({
+        email: cleanEmail,
         password,
-      );
+      }),
+    );
+  };
 
-      const user = userCredential.user;
-      const userReference = doc(db, "users", user.uid);
-      const userSnapshot = await getDoc(userReference);
+  const handleEmailChange = (event) => {
+    setEmail(event.target.value);
 
-      // 1.GÜN - Giriş yapan kullanıcı Firestore users koleksiyonuna kaydedildi.
-      if (!userSnapshot.exists()) {
-        await setDoc(userReference, {
-          id: user.uid,
-          ownerId: user.uid,
-          email: user.email,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await updateDoc(userReference, {
-          email: user.email,
-          updatedAt: serverTimestamp(),
-        });
-      }
-    } catch (error) {
-      console.error("Giriş hatası:", error);
+    if (authError) {
+      dispatch(clearAuthError());
+    }
+  };
 
-      if (error.code === "auth/invalid-credential") {
-        alert("E-posta veya şifre hatalı.");
-      } else if (error.code === "auth/too-many-requests") {
-        alert("Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.");
-      } else {
-        alert("Giriş yapılırken bir hata oluştu.");
-      }
-    } finally {
-      setIsLoggingIn(false);
+  const handlePasswordChange = (event) => {
+    setPassword(event.target.value);
+
+    if (authError) {
+      dispatch(clearAuthError());
     }
   };
 
@@ -90,7 +75,9 @@ function Login() {
             type="email"
             placeholder="E-posta adresinizi girin"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={handleEmailChange}
+            autoComplete="email"
+            disabled={isLoggingIn}
           />
 
           <label className="form-label" htmlFor="password">
@@ -103,8 +90,12 @@ function Login() {
             type="password"
             placeholder="Şifrenizi girin"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={handlePasswordChange}
+            autoComplete="current-password"
+            disabled={isLoggingIn}
           />
+
+          {authError && <p className="form-error">{authError}</p>}
 
           <button className="login-button" type="submit" disabled={isLoggingIn}>
             {isLoggingIn ? "Giriş Yapılıyor..." : "Giriş Yap"}

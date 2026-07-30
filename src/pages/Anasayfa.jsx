@@ -1,7 +1,25 @@
-// src/pages/Anasayfa.jsx
+import { useDispatch, useSelector } from "react-redux";
 
-function Anasayfa({ email, onLogout }) {
-  // 1.GÜN - Giriş yapan kullanıcının e-posta bilgisi ana sayfada gösterildi.
+import { logoutUser } from "../features/auth/application/authThunks";
+
+import {
+  selectAuthStatus,
+  selectCurrentUser,
+} from "../features/auth/presentation/authSelectors";
+
+function Anasayfa() {
+  const dispatch = useDispatch();
+
+  const currentUser = useSelector(selectCurrentUser);
+  const authStatus = useSelector(selectAuthStatus);
+
+  const isLoggingOut = authStatus === "loading";
+
+  // 1.GÜN - Çıkış butonu Redux thunk ile Firebase çıkış işlemine bağlandı.
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+  };
+
   return (
     <div className="page-container">
       <div className="welcome-card">
@@ -11,10 +29,15 @@ function Anasayfa({ email, onLogout }) {
           FinanceFlow ana sayfasına giriş yapıldı.
         </p>
 
-        <p className="user-email">{email}</p>
+        <p className="user-email">{currentUser?.email}</p>
 
-        <button className="logout-button" type="button" onClick={onLogout}>
-          Çıkış Yap
+        <button
+          className="logout-button"
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+        >
+          {isLoggingOut ? "Çıkış Yapılıyor..." : "Çıkış Yap"}
         </button>
       </div>
     </div>

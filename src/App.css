@@ -100,7 +100,14 @@
   background-color: #bb2d3b;
 }
 
-/* 2.GÜN - Kullanıcı e-postası ve pasif buton görünümü düzenlendi. */
+/* 2.GÜN - Redux giriş hata mesajı ve pasif buton görünümü oluşturuldu. */
+
+.form-error {
+  margin: 0 0 16px;
+  color: #c2185b;
+  font-size: 14px;
+  text-align: center;
+}
 
 .user-email {
   margin: 10px 0;
@@ -109,7 +116,8 @@
   text-align: center;
 }
 
-.login-button:disabled {
+.login-button:disabled,
+.logout-button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
 }
