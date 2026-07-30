@@ -99,3 +99,17 @@
 .logout-button:hover {
   background-color: #bb2d3b;
 }
+
+/* 2.GÜN - Kullanıcı e-postası ve pasif buton görünümü düzenlendi. */
+
+.user-email {
+  margin: 10px 0;
+  color: #880e4f;
+  font-weight: 600;
+  text-align: center;
+}
+
+.login-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

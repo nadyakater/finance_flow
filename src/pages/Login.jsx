@@ -1,20 +1,75 @@
+// src/pages/Login.jsx
+
 import { useState } from "react";
 
-function Login({ onLogin }) {
+import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+
+import { auth, db } from "../firebase";
+
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // 1.GÜN - E-posta ve şifre alanlarından oluşan giriş formu oluşturuldu.
-  // deneme yorum satırı
-  const handleSubmit = (event) => {
+  // 1.GÜN - E-posta ve şifre ile Firebase giriş işlemi oluşturuldu.
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!email || !password) {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail || !password) {
       alert("Lütfen e-posta ve şifre alanlarını doldurun.");
       return;
     }
 
-    onLogin();
+    try {
+      setIsLoggingIn(true);
+
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        cleanEmail,
+        password,
+      );
+
+      const user = userCredential.user;
+      const userReference = doc(db, "users", user.uid);
+      const userSnapshot = await getDoc(userReference);
+
+      // 1.GÜN - Giriş yapan kullanıcı Firestore users koleksiyonuna kaydedildi.
+      if (!userSnapshot.exists()) {
+        await setDoc(userReference, {
+          id: user.uid,
+          ownerId: user.uid,
+          email: user.email,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await updateDoc(userReference, {
+          email: user.email,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error("Giriş hatası:", error);
+
+      if (error.code === "auth/invalid-credential") {
+        alert("E-posta veya şifre hatalı.");
+      } else if (error.code === "auth/too-many-requests") {
+        alert("Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.");
+      } else {
+        alert("Giriş yapılırken bir hata oluştu.");
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   return (
@@ -51,8 +106,8 @@ function Login({ onLogin }) {
             onChange={(event) => setPassword(event.target.value)}
           />
 
-          <button className="login-button" type="submit">
-            Giriş Yap
+          <button className="login-button" type="submit" disabled={isLoggingIn}>
+            {isLoggingIn ? "Giriş Yapılıyor..." : "Giriş Yap"}
           </button>
         </form>
       </div>
