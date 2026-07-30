@@ -4,7 +4,7 @@ function Anasayfa() {
     <div className="page-container">
       <div className="welcome-card">
         <h1 className="welcome-title">Hoş Geldiniz</h1>
-
+//anasayfa yorum satırı
         <p className="page-description">
           FinanceFlow ana sayfasına giriş yapıldı :).
         </p>
