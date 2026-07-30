@@ -83,3 +83,19 @@
 .welcome-card {
   text-align: center;
 }
+
+.logout-button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.logout-button:hover {
+  background-color: #bb2d3b;
+}

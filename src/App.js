@@ -13,10 +13,14 @@ function App() {
     setIsLoggedIn(true);
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
   return (
     <div className="App">
       {isLoggedIn ? (
-        <Anasayfa />
+        <Anasayfa onLogout={handleLogout} />
       ) : (
         <Login onLogin={handleLogin} />
       )}
