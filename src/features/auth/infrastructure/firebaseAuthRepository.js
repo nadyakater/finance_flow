@@ -26,8 +26,15 @@ function mapFirebaseUser(user) {
 }
 
 async function createUserDocumentIfNotExists(user) {
-  const userReference = doc(db, "users", user.uid);
-  const userSnapshot = await getDoc(userReference);
+  const userReference = doc(
+    db,
+    "users",
+    user.uid,
+  );
+
+  const userSnapshot = await getDoc(
+    userReference,
+  );
 
   if (userSnapshot.exists()) {
     return;
@@ -48,21 +55,29 @@ async function createUserDocumentIfNotExists(user) {
 }
 
 // 1.GÜN - Firebase üzerinden e-posta ve şifre ile giriş işlemi oluşturuldu.
-export async function loginWithEmailAndPassword(email, password) {
-  const userCredential = await signInWithEmailAndPassword(
-    auth,
-    email,
-    password,
-  );
+export async function loginWithEmailAndPassword(
+  email,
+  password,
+) {
+  const userCredential =
+    await signInWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
 
   try {
-    await createUserDocumentIfNotExists(userCredential.user);
+    await createUserDocumentIfNotExists(
+      userCredential.user,
+    );
   } catch (error) {
     await signOut(auth);
     throw error;
   }
 
-  return mapFirebaseUser(userCredential.user);
+  return mapFirebaseUser(
+    userCredential.user,
+  );
 }
 
 // 1.GÜN - Firebase üzerinden çıkış işlemi oluşturuldu.
@@ -71,7 +86,10 @@ export async function logoutFromFirebase() {
 }
 
 // 1.GÜN - Firebase oturum değişikliklerini takip eden listener oluşturuldu.
-export function subscribeToAuthChanges(onUserChanged, onError) {
+export function subscribeToAuthChanges(
+  onUserChanged,
+  onError,
+) {
   return onAuthStateChanged(
     auth,
     (user) => {

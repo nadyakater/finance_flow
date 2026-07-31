@@ -121,3 +121,111 @@
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+/* 3.GÜN - Gelir ve gider kayıt formu ile tablo için sade tasarım oluşturuldu. */
+
+.transaction-card {
+  max-width: 900px;
+  text-align: left;
+}
+
+.transaction-form {
+  margin-top: 25px;
+  padding: 20px;
+  border: 1px solid #f8bbd0;
+  border-radius: 12px;
+  background-color: #ffffff;
+}
+
+.section-title {
+  margin: 0 0 18px;
+  color: #d81b60;
+  font-size: 21px;
+  text-align: left;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(
+    2,
+    minmax(0, 1fr)
+  );
+  gap: 16px;
+}
+
+.transaction-form .form-input {
+  margin-bottom: 0;
+}
+
+.add-button {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background-color: #e91e63;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background-color: #c2185b;
+}
+
+.add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.table-title {
+  margin-top: 30px;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+}
+
+.transaction-table th,
+.transaction-table td {
+  padding: 12px;
+  border: 1px solid #f8bbd0;
+  text-align: left;
+}
+
+.transaction-table th {
+  background-color: #fce4ec;
+  color: #880e4f;
+}
+
+.transaction-table td {
+  color: #555555;
+}
+
+.empty-table-cell {
+  text-align: center !important;
+}
+
+.transaction-card .logout-button {
+  display: block;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+@media (max-width: 600px) {
+  .transaction-card {
+    padding: 20px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
