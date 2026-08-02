@@ -28,7 +28,8 @@ export const loadTransactions =
     },
   );
 
-// 3.GÜN - Yeni gelir veya gider kaydını ekleyen Redux thunk oluşturuldu.
+
+// 4.GÜN - Gelir gider miktar ve kategori bilgisi ile kayıt ekleme güncellendi.
 export const addTransaction =
   createAsyncThunk(
     "transactions/addTransaction",
@@ -36,7 +37,8 @@ export const addTransaction =
       {
         userId,
         transactionType,
-        incomeType,
+        category,
+        amount,
       },
       { rejectWithValue },
     ) => {
@@ -45,7 +47,8 @@ export const addTransaction =
           userId,
           {
             transactionType,
-            incomeType,
+            category,
+            amount,
           },
         );
       } catch (error) {
