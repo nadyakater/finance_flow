@@ -381,6 +381,7 @@ export async function moveCategoryDocument(
 
         pathIds: updatedPathIds,
         pathNames: updatedPathNames,
+
         depth:
           updatedPathIds.length - 1,
 
@@ -439,6 +440,7 @@ export async function archiveCategoryDocument(
 
       batch.update(categoryReference, {
         isArchived: true,
+
         updatedAtUtc:
           serverTimestamp(),
       });
@@ -520,6 +522,7 @@ export async function restoreCategoryDocument(
 
       batch.update(categoryReference, {
         isArchived: false,
+
         updatedAtUtc:
           serverTimestamp(),
       });
