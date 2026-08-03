@@ -1,17 +1,29 @@
-// 3.GÜN - Gelir ve gider kayıtlarını Redux içinden alan selector yapısı oluşturuldu.
+const selectTransactionState = (
+  state,
+) => state.transactions;
 
+// 3.GÜN - Gelir ve gider kayıtlarını Redux içerisinden alan selector oluşturuldu.
 export const selectTransactions = (
   state,
-) => state.transactions.items;
+) =>
+  selectTransactionState(state).items;
 
-export const selectTransactionLoadStatus = (
-  state,
-) => state.transactions.loadStatus;
+// 3.GÜN - Kayıtların yüklenme durumunu alan selector oluşturuldu.
+export const selectTransactionLoadStatus =
+  (state) =>
+    selectTransactionState(
+      state,
+    ).loadStatus;
 
-export const selectTransactionSaveStatus = (
-  state,
-) => state.transactions.saveStatus;
+// 3.GÜN - Yeni kayıt ekleme durumunu alan selector oluşturuldu.
+export const selectTransactionSaveStatus =
+  (state) =>
+    selectTransactionState(
+      state,
+    ).saveStatus;
 
+// 3.GÜN - Gelir ve gider işlemlerindeki hata bilgisini alan selector oluşturuldu.
 export const selectTransactionError = (
   state,
-) => state.transactions.error;
+) =>
+  selectTransactionState(state).error;

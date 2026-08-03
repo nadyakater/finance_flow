@@ -5,6 +5,20 @@ import {
   getTransactions,
 } from "../infrastructure/firebaseTransactionRepository";
 
+function getTransactionErrorMessage(
+  error,
+  fallbackMessage,
+) {
+  if (
+    error?.message ===
+    "TRANSACTION_INVALID_AMOUNT"
+  ) {
+    return "Miktar sıfırdan büyük olmalıdır.";
+  }
+
+  return fallbackMessage;
+}
+
 // 3.GÜN - Gelir ve gider kayıtlarını getiren Redux thunk oluşturuldu.
 export const loadTransactions =
   createAsyncThunk(
@@ -14,7 +28,9 @@ export const loadTransactions =
       { rejectWithValue },
     ) => {
       try {
-        return await getTransactions(userId);
+        return await getTransactions(
+          userId,
+        );
       } catch (error) {
         console.error(
           "Transaction load error:",
@@ -28,8 +44,8 @@ export const loadTransactions =
     },
   );
 
-
 // 4.GÜN - Gelir gider miktar ve kategori bilgisi ile kayıt ekleme güncellendi.
+// 5.GÜN - Kategori kimliği ve kategori yolu kayıt işlemine eklendi.
 export const addTransaction =
   createAsyncThunk(
     "transactions/addTransaction",
@@ -37,7 +53,11 @@ export const addTransaction =
       {
         userId,
         transactionType,
+        categoryId,
         category,
+        categoryPath,
+        categoryPathIds,
+        categoryType,
         amount,
       },
       { rejectWithValue },
@@ -47,7 +67,11 @@ export const addTransaction =
           userId,
           {
             transactionType,
+            categoryId,
             category,
+            categoryPath,
+            categoryPathIds,
+            categoryType,
             amount,
           },
         );
@@ -58,7 +82,10 @@ export const addTransaction =
         );
 
         return rejectWithValue(
-          "Kayıt eklenirken bir hata oluştu.",
+          getTransactionErrorMessage(
+            error,
+            "Kayıt eklenirken bir hata oluştu.",
+          ),
         );
       }
     },

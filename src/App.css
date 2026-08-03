@@ -4,6 +4,12 @@
   box-sizing: border-box;
 }
 
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background-color: #ffffff;
+}
+
 .App {
   min-height: 100vh;
   background-color: #ffffff;
@@ -18,6 +24,10 @@
   background-color: #ffffff;
 }
 
+.dashboard-page-container {
+  align-items: flex-start;
+}
+
 .login-card,
 .welcome-card {
   width: 100%;
@@ -26,7 +36,8 @@
   border: 1px solid #f8bbd0;
   border-radius: 16px;
   background-color: #fff5f8;
-  box-shadow: 0 8px 24px rgba(233, 30, 99, 0.12);
+  box-shadow: 0 8px 24px
+    rgba(233, 30, 99, 0.12);
 }
 
 .page-title,
@@ -87,10 +98,10 @@
 .logout-button {
   margin-top: 20px;
   padding: 10px 20px;
-  background-color: #dc3545;
-  color: white;
   border: none;
   border-radius: 8px;
+  background-color: #dc3545;
+  color: #ffffff;
   font-size: 16px;
   cursor: pointer;
   transition: 0.3s;
@@ -103,7 +114,7 @@
 /* 2.GÜN - Redux giriş hata mesajı ve pasif buton görünümü oluşturuldu. */
 
 .form-error {
-  margin: 0 0 16px;
+  margin: 12px 0 16px;
   color: #c2185b;
   font-size: 14px;
   text-align: center;
@@ -125,7 +136,9 @@
 /* 3.GÜN - Gelir ve gider kayıt formu ile tablo için sade tasarım oluşturuldu. */
 
 .transaction-card {
-  max-width: 900px;
+  width: 96vw;
+  max-width: 1500px;
+  margin: 10px auto 30px;
   text-align: left;
 }
 
@@ -147,7 +160,7 @@
 .form-row {
   display: grid;
   grid-template-columns: repeat(
-    2,
+    3,
     minmax(0, 1fr)
   );
   gap: 16px;
@@ -220,12 +233,334 @@
   margin-left: auto;
 }
 
-@media (max-width: 600px) {
-  .transaction-card {
-    padding: 20px;
+/* 5.GÜN - Sınırsız kategori ağacı, taşıma, arşivleme ve filtreleme tasarımı oluşturuldu. */
+
+.category-management-section {
+  margin-top: 25px;
+  padding: 20px;
+  border: 1px solid #f8bbd0;
+  border-radius: 12px;
+  background-color: #ffffff;
+}
+
+.category-form {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f8bbd0;
+}
+
+.category-form-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    3,
+    minmax(0, 1fr)
+  );
+  gap: 16px;
+}
+
+.category-form-grid .form-input {
+  margin-bottom: 0;
+}
+
+.category-tree-panel {
+  max-height: 420px;
+  margin-top: 20px;
+  padding: 15px;
+  overflow-y: auto;
+  border: 1px solid #f8bbd0;
+  border-radius: 10px;
+  background-color: #fffafb;
+}
+
+.category-tree-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.category-tree-children {
+  margin-top: 8px;
+  margin-left: 24px;
+  padding-left: 14px;
+  border-left: 2px solid #f8bbd0;
+}
+
+.category-tree-item {
+  margin-bottom: 8px;
+}
+
+.category-node-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid #f8bbd0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #555555;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-node-button:hover {
+  background-color: #fce4ec;
+}
+
+.category-node-button-selected {
+  border-color: #d81b60;
+  background-color: #fce4ec;
+}
+
+.category-node-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.category-node-name {
+  color: #880e4f;
+  font-weight: 600;
+}
+
+.category-node-type {
+  color: #777777;
+  font-size: 12px;
+}
+
+.category-node-totals {
+  color: #666666;
+  font-size: 12px;
+  text-align: right;
+}
+
+.category-action-panel {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid #f8bbd0;
+  border-radius: 10px;
+  background-color: #fff5f8;
+}
+
+.selected-category-text {
+  margin: 0 0 14px;
+  color: #555555;
+}
+
+.category-action-panel .form-input {
+  margin-bottom: 0;
+}
+
+.category-action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.secondary-button,
+.archive-button,
+.restore-button,
+.filter-clear-button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-button {
+  background-color: #e91e63;
+}
+
+.secondary-button:hover {
+  background-color: #c2185b;
+}
+
+.archive-button {
+  background-color: #dc3545;
+}
+
+.archive-button:hover {
+  background-color: #bb2d3b;
+}
+
+.restore-button {
+  flex-shrink: 0;
+  background-color: #ad1457;
+}
+
+.restore-button:hover {
+  background-color: #880e4f;
+}
+
+.secondary-button:disabled,
+.archive-button:disabled,
+.restore-button:disabled,
+.filter-clear-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.empty-message {
+  margin: 0;
+  padding: 12px;
+  color: #777777;
+  text-align: center;
+}
+
+/* 5.GÜN - Arşivlenen kategorilerin listelenmesi ve geri yüklenmesi için tasarım oluşturuldu. */
+
+.archive-section {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #f8bbd0;
+  border-radius: 10px;
+  background-color: #fffafb;
+}
+
+.archive-title {
+  margin: 0 0 15px;
+  color: #880e4f;
+  font-size: 18px;
+}
+
+.archive-list {
+  display: grid;
+  grid-template-columns: repeat(
+    2,
+    minmax(0, 1fr)
+  );
+  gap: 12px;
+}
+
+.archive-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px;
+  border: 1px solid #f8bbd0;
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.archive-category-name {
+  margin: 0 0 4px;
+  color: #555555;
+  font-weight: 600;
+}
+
+.archive-category-type {
+  color: #777777;
+  font-size: 12px;
+}
+
+.category-filter-section {
+  margin-top: 25px;
+  padding: 18px;
+  border: 1px solid #f8bbd0;
+  border-radius: 12px;
+  background-color: #ffffff;
+}
+
+.filter-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.filter-heading-row .section-title {
+  margin-bottom: 0;
+}
+
+.filter-clear-button {
+  background-color: #ad1457;
+}
+
+.filter-clear-button:hover {
+  background-color: #880e4f;
+}
+
+.include-descendants-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  color: #880e4f;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.category-filter-list {
+  display: grid;
+  grid-template-columns: repeat(
+    3,
+    minmax(0, 1fr)
+  );
+  gap: 10px;
+  max-height: 220px;
+  margin-top: 15px;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid #f8bbd0;
+  border-radius: 8px;
+  background-color: #fffafb;
+}
+
+.category-filter-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #555555;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .category-form-grid,
+  .category-filter-list,
+  .archive-list {
+    grid-template-columns: 1fr;
   }
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .transaction-card {
+    width: 100%;
+    padding: 20px;
+  }
+
+  .category-node-button {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .category-node-totals {
+    text-align: left;
+  }
+
+  .category-action-buttons,
+  .filter-heading-row,
+  .archive-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .restore-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .category-tree-children {
+    margin-left: 12px;
+    padding-left: 9px;
   }
 }

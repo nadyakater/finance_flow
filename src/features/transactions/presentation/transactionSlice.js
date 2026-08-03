@@ -29,7 +29,8 @@ const transactionSlice = createSlice({
         loadTransactions.fulfilled,
         (state, action) => {
           state.items = action.payload;
-          state.loadStatus = "succeeded";
+          state.loadStatus =
+            "succeeded";
           state.error = null;
         },
       )
@@ -37,6 +38,7 @@ const transactionSlice = createSlice({
         loadTransactions.rejected,
         (state, action) => {
           state.loadStatus = "failed";
+
           state.error =
             action.payload ??
             "Kayıtlar getirilemedi.";
@@ -56,7 +58,9 @@ const transactionSlice = createSlice({
             action.payload,
           );
 
-          state.saveStatus = "succeeded";
+          state.saveStatus =
+            "succeeded";
+
           state.error = null;
         },
       )
@@ -64,6 +68,7 @@ const transactionSlice = createSlice({
         addTransaction.rejected,
         (state, action) => {
           state.saveStatus = "failed";
+
           state.error =
             action.payload ??
             "Kayıt eklenemedi.";
