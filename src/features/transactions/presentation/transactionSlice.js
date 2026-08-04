@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 import {
+  addRefundTransaction,
   addTransaction,
   loadTransactions,
 } from "../application/transactionThunks";
@@ -73,9 +74,78 @@ const transactionSlice = createSlice({
             action.payload ??
             "Kayıt eklenemedi.";
         },
+      )
+      // 6.GÜN - Tam veya kısmi iade kaydının Redux listesine eklenmesi sağlandı.
+      .addCase(
+        addRefundTransaction.pending,
+        (state) => {
+          state.saveStatus = "loading";
+          state.error = null;
+        },
+      )
+      .addCase(
+        addRefundTransaction.fulfilled,
+        (state, action) => {
+          const refundTransaction =
+            action.payload;
+
+          state.items.unshift(
+            refundTransaction,
+          );
+
+          const originalTransaction =
+            state.items.find(
+              (transaction) =>
+                transaction.id ===
+                refundTransaction.originalTransactionId,
+            );
+
+          if (originalTransaction) {
+            const currentRefundedMinor =
+              Number(
+                originalTransaction.refundedMinor ??
+                  0,
+              );
+
+            const newRefundedMinor =
+              currentRefundedMinor +
+              Number(
+                refundTransaction.amountMinor ??
+                  0,
+              );
+
+            originalTransaction.refundedMinor =
+              newRefundedMinor;
+
+            originalTransaction.refundStatus =
+              newRefundedMinor >=
+              Number(
+                originalTransaction.amountMinor ??
+                  0,
+              )
+                ? "full"
+                : "partial";
+          }
+
+          state.saveStatus =
+            "succeeded";
+
+          state.error = null;
+        },
+      )
+      .addCase(
+        addRefundTransaction.rejected,
+        (state, action) => {
+          state.saveStatus = "failed";
+
+          state.error =
+            action.payload ??
+            "İade kaydı oluşturulamadı.";
+        },
       );
   },
 });
 
 // 3.GÜN - Gelir ve gider kayıtlarının Redux state yapısı oluşturuldu.
+// 6.GÜN - İade kayıtları ve orijinal giderin iade durumu Redux state içerisinde yönetildi.
 export default transactionSlice.reducer;

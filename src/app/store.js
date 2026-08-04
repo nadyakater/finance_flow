@@ -3,6 +3,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import authReducer from "../features/auth/presentation/authSlice";
+import catalogReducer from "../features/catalog/presentation/catalogSlice";
 import categoryReducer from "../features/categories/presentation/categorySlice";
 import transactionReducer from "../features/transactions/presentation/transactionSlice";
 
@@ -16,5 +17,8 @@ export const store = configureStore({
 
     // 5.GÜN - Sınırsız kategori ağacı Redux store içerisine eklendi.
     categories: categoryReducer,
+
+    // 6.GÜN - Firma, şube, marka ve ürün katalog bilgileri Redux store içerisine eklendi.
+    catalog: catalogReducer,
   },
 });
