@@ -1,546 +1,463 @@
 import { createSelector } from "@reduxjs/toolkit";
 
-const selectTransactionState = (state) =>
-  state.transactions;
+const selectTransactionState = (state) => state.transactions;
 
-// 3.GÜN - Gelir ve gider kayıtlarını Redux içerisinden alan selector oluşturuldu.
+// =====================================================
+// Temel işlem selectorları
+// =====================================================
+
 export const selectTransactions = (state) =>
   selectTransactionState(state).items;
 
-// 3.GÜN - Kayıtların yüklenme durumunu alan selector oluşturuldu.
-export const selectTransactionLoadStatus =
-  (state) =>
-    selectTransactionState(
-      state,
-    ).loadStatus;
+export const selectTransactionLoadStatus = (state) =>
+  selectTransactionState(state).loadStatus;
 
-// 3.GÜN - Yeni kayıt ekleme durumunu alan selector oluşturuldu.
-export const selectTransactionSaveStatus =
-  (state) =>
-    selectTransactionState(
-      state,
-    ).saveStatus;
+export const selectTransactionSaveStatus = (state) =>
+  selectTransactionState(state).saveStatus;
 
-// 3.GÜN - Gelir ve gider işlemlerindeki hata bilgisini alan selector oluşturuldu.
+export const selectTransactionRefundStatus = (state) =>
+  selectTransactionState(state).refundStatus;
+
+export const selectTransactionDeleteStatus = (state) =>
+  selectTransactionState(state).deleteStatus;
+
 export const selectTransactionError = (state) =>
   selectTransactionState(state).error;
 
-function getRemainingExpenseMinor(
-  transaction,
-) {
-  const amountMinor = Number(
-    transaction.amountMinor ?? 0,
-  );
+export const selectTransactionSuccessMessage = (state) =>
+  selectTransactionState(state).successMessage;
 
-  const refundedMinor = Number(
-    transaction.refundedMinor ?? 0,
-  );
+// =====================================================
+// İade sonrası kalan gider
+// =====================================================
 
-  return Math.max(
-    amountMinor - refundedMinor,
-    0,
-  );
+function getRemainingExpenseMinor(transaction) {
+  const amountMinor = Number(transaction.amountMinor ?? 0);
+
+  const refundedMinor = Number(transaction.refundedMinor ?? 0);
+
+  return Math.max(amountMinor - refundedMinor, 0);
 }
 
-function getTransactionDateValue(
-  transaction,
-) {
-  const dateValue =
-    transaction.transactionDate ||
-    transaction.createdAtUtc;
+function getTransactionDateValue(transaction) {
+  const dateValue = transaction.transactionDate || transaction.createdAtUtc;
 
-  const timestamp =
-    new Date(dateValue).getTime();
+  const timestamp = new Date(dateValue).getTime();
 
-  return Number.isFinite(timestamp)
-    ? timestamp
-    : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-function allocateRefundToLines(
-  transaction,
-) {
-  const lines = Array.isArray(
-    transaction.lines,
-  )
-    ? transaction.lines
-    : [];
+// İade satır bazlı değilse, toplam iade tutarı
+// işlem satırlarına orantılı olarak dağıtılır.
+function allocateRefundToLines(transaction) {
+  const lines = Array.isArray(transaction.lines) ? transaction.lines : [];
 
   if (lines.length === 0) {
     return [];
   }
 
-  const transactionAmountMinor =
-    Number(
-      transaction.amountMinor ?? 0,
-    );
+  const transactionAmountMinor = Number(transaction.amountMinor ?? 0);
 
-  const remainingExpenseMinor =
-    getRemainingExpenseMinor(
-      transaction,
-    );
+  const remainingExpenseMinor = getRemainingExpenseMinor(transaction);
 
   if (transactionAmountMinor <= 0) {
     return lines.map((line) => ({
       ...line,
+
       adjustedNetAmountMinor: 0,
     }));
   }
 
-  if (
-    remainingExpenseMinor ===
-    transactionAmountMinor
-  ) {
+  if (remainingExpenseMinor === transactionAmountMinor) {
     return lines.map((line) => ({
       ...line,
-      adjustedNetAmountMinor:
-        Number(
-          line.netAmountMinor ?? 0,
-        ),
+
+      adjustedNetAmountMinor: Number(line.netAmountMinor ?? 0),
     }));
   }
 
   let allocatedTotalMinor = 0;
 
-  return lines.map(
-    (line, index) => {
-      const lineNetAmountMinor =
-        Number(
-          line.netAmountMinor ?? 0,
+  return lines.map((line, index) => {
+    const lineNetAmountMinor = Number(line.netAmountMinor ?? 0);
+
+    const isLastLine = index === lines.length - 1;
+
+    const adjustedNetAmountMinor = isLastLine
+      ? Math.max(remainingExpenseMinor - allocatedTotalMinor, 0)
+      : Math.round(
+          (lineNetAmountMinor * remainingExpenseMinor) / transactionAmountMinor,
         );
 
-      const isLastLine =
-        index === lines.length - 1;
+    allocatedTotalMinor += adjustedNetAmountMinor;
 
-      const adjustedNetAmountMinor =
-        isLastLine
-          ? Math.max(
-              remainingExpenseMinor -
-                allocatedTotalMinor,
-              0,
-            )
-          : Math.round(
-              (lineNetAmountMinor *
-                remainingExpenseMinor) /
-                transactionAmountMinor,
-            );
+    return {
+      ...line,
 
-      allocatedTotalMinor +=
-        adjustedNetAmountMinor;
-
-      return {
-        ...line,
-        adjustedNetAmountMinor,
-      };
-    },
-  );
+      adjustedNetAmountMinor,
+    };
+  });
 }
 
-// 6.GÜN - Gelir kayıtlarının toplam tutarını hesaplayan selector oluşturuldu.
-export const selectTotalIncomeMinor =
-  createSelector(
-    [selectTransactions],
-    (transactions) =>
-      transactions
-        .filter(
-          (transaction) =>
-            transaction.transactionType ===
-            "Gelir",
-        )
-        .reduce(
-          (total, transaction) =>
-            total +
-            Number(
-              transaction.amountMinor ??
-                0,
-            ),
-          0,
-        ),
-  );
+// =====================================================
+// Finansal özet selectorları
+// =====================================================
 
-// 6.GÜN - İade uygulanmadan önceki toplam gider tutarını hesaplayan selector oluşturuldu.
-export const selectGrossExpenseMinor =
-  createSelector(
-    [selectTransactions],
-    (transactions) =>
-      transactions
-        .filter(
-          (transaction) =>
-            transaction.transactionType ===
-            "Gider",
-        )
-        .reduce(
-          (total, transaction) =>
-            total +
-            Number(
-              transaction.amountMinor ??
-                0,
-            ),
-          0,
-        ),
-  );
+export const selectTotalIncomeMinor = createSelector(
+  [selectTransactions],
 
-// 6.GÜN - Oluşturulan bütün iade kayıtlarının toplamını hesaplayan selector oluşturuldu.
-export const selectTotalRefundMinor =
-  createSelector(
-    [selectTransactions],
-    (transactions) =>
-      transactions
-        .filter(
-          (transaction) =>
-            transaction.transactionType ===
-            "İade",
-        )
-        .reduce(
-          (total, transaction) =>
-            total +
-            Number(
-              transaction.amountMinor ??
-                0,
-            ),
-          0,
-        ),
-  );
+  (transactions) =>
+    transactions
+      .filter((transaction) => transaction.transactionType === "Gelir")
+      .reduce(
+        (total, transaction) => total + Number(transaction.amountMinor ?? 0),
+        0,
+      ),
+);
 
-// 6.GÜN - İadeler düşüldükten sonraki gerçek gider toplamını hesaplayan selector oluşturuldu.
-export const selectNetExpenseMinor =
-  createSelector(
-    [selectTransactions],
-    (transactions) =>
-      transactions
-        .filter(
-          (transaction) =>
-            transaction.transactionType ===
-            "Gider",
-        )
-        .reduce(
-          (total, transaction) =>
-            total +
-            getRemainingExpenseMinor(
-              transaction,
-            ),
-          0,
-        ),
-  );
+export const selectGrossExpenseMinor = createSelector(
+  [selectTransactions],
 
-// 6.GÜN - Gelir ve iade sonrası gider arasındaki net tutarı hesaplayan selector oluşturuldu.
-export const selectNetBalanceMinor =
-  createSelector(
-    [
-      selectTotalIncomeMinor,
-      selectNetExpenseMinor,
-    ],
-    (
-      totalIncomeMinor,
-      netExpenseMinor,
-    ) =>
-      totalIncomeMinor -
-      netExpenseMinor,
-  );
+  (transactions) =>
+    transactions
+      .filter((transaction) => transaction.transactionType === "Gider")
+      .reduce(
+        (total, transaction) => total + Number(transaction.amountMinor ?? 0),
+        0,
+      ),
+);
 
-const selectProductId = (
-  _state,
-  productId,
-) => productId;
+export const selectTotalRefundMinor = createSelector(
+  [selectTransactions],
 
-// 6.GÜN - Seçilen ürünün geçmiş gider satırlarını firma, şube ve fiyat bilgileriyle hazırlayan selector oluşturuldu.
-export const selectProductPurchaseHistory =
-  createSelector(
-    [
-      selectTransactions,
-      selectProductId,
-    ],
-    (
-      transactions,
-      productId,
-    ) => {
-      if (!productId) {
-        return [];
-      }
+  (transactions) =>
+    transactions
+      .filter((transaction) => transaction.transactionType === "İade")
+      .reduce(
+        (total, transaction) => total + Number(transaction.amountMinor ?? 0),
+        0,
+      ),
+);
 
-      return transactions
-        .filter(
-          (transaction) =>
-            transaction.transactionType ===
-            "Gider",
-        )
-        .flatMap((transaction) => {
-          const adjustedLines =
-            allocateRefundToLines(
-              transaction,
+export const selectNetExpenseMinor = createSelector(
+  [selectTransactions],
+
+  (transactions) =>
+    transactions
+      .filter((transaction) => transaction.transactionType === "Gider")
+      .reduce(
+        (total, transaction) => total + getRemainingExpenseMinor(transaction),
+        0,
+      ),
+);
+
+export const selectNetBalanceMinor = createSelector(
+  [selectTotalIncomeMinor, selectNetExpenseMinor],
+
+  (totalIncomeMinor, netExpenseMinor) => totalIncomeMinor - netExpenseMinor,
+);
+
+// =====================================================
+// Ürün satın alma geçmişi
+// =====================================================
+
+const selectProductId = (_state, productId) => productId;
+
+export const selectProductPurchaseHistory = createSelector(
+  [selectTransactions, selectProductId],
+
+  (transactions, productId) => {
+    if (!productId) {
+      return [];
+    }
+
+    return transactions
+      .filter((transaction) => transaction.transactionType === "Gider")
+      .flatMap((transaction) => {
+        const adjustedLines = allocateRefundToLines(transaction);
+
+        return adjustedLines
+          .filter((line) => line.productId === productId)
+          .map((line) => {
+            const normalizedQuantity = Number(line.normalizedQuantity ?? 0);
+
+            const adjustedNetAmountMinor = Number(
+              line.adjustedNetAmountMinor ?? 0,
             );
 
-          return adjustedLines
-            .filter(
-              (line) =>
-                line.productId ===
-                productId,
-            )
-            .map((line) => {
-              const normalizedQuantity =
-                Number(
-                  line.normalizedQuantity ??
-                    0,
-                );
+            const normalizedUnitPriceMinor =
+              normalizedQuantity > 0
+                ? Math.round(adjustedNetAmountMinor / normalizedQuantity)
+                : 0;
 
-              const adjustedNetAmountMinor =
-                Number(
-                  line.adjustedNetAmountMinor ??
-                    0,
-                );
+            return {
+              transactionId: transaction.id,
 
-              const normalizedUnitPriceMinor =
-                normalizedQuantity > 0
-                  ? Math.round(
-                      adjustedNetAmountMinor /
-                        normalizedQuantity,
-                    )
-                  : 0;
+              transactionDate:
+                transaction.transactionDate || transaction.createdAtUtc,
 
-              return {
-                transactionId:
-                  transaction.id,
+              merchantId: transaction.merchantId ?? "",
 
-                transactionDate:
-                  transaction.transactionDate ||
-                  transaction.createdAtUtc,
+              merchantName: transaction.merchantName ?? "",
 
-                merchantId:
-                  transaction.merchantId ??
-                  "",
+              branchId: transaction.branchId ?? "",
 
-                merchantName:
-                  transaction.merchantName ??
-                  "",
+              branchName: transaction.branchName ?? "",
 
-                branchId:
-                  transaction.branchId ??
-                  "",
+              productId: line.productId ?? "",
 
-                branchName:
-                  transaction.branchName ??
-                  "",
+              productName: line.productName ?? "",
 
-                productId:
-                  line.productId ?? "",
+              brandId: line.brandId ?? "",
 
-                productName:
-                  line.productName ?? "",
+              brandName: line.brandName ?? "",
 
-                brandId:
-                  line.brandId ?? "",
+              purchaseQuantity: Number(line.purchaseQuantity ?? 0),
 
-                brandName:
-                  line.brandName ?? "",
+              unitCount: Number(line.unitCount ?? 0),
 
-                purchaseQuantity:
-                  Number(
-                    line.purchaseQuantity ??
-                      0,
-                  ),
+              unitSize: Number(line.unitSize ?? 0),
 
-                unitCount:
-                  Number(
-                    line.unitCount ?? 0,
-                  ),
+              unitType: line.unitType ?? "",
 
-                unitSize:
-                  Number(
-                    line.unitSize ?? 0,
-                  ),
+              normalizedQuantity,
 
-                unitType:
-                  line.unitType ?? "",
+              normalizedUnit: line.normalizedUnit ?? "",
 
-                normalizedQuantity,
+              netAmountMinor: adjustedNetAmountMinor,
 
-                normalizedUnit:
-                  line.normalizedUnit ??
-                  "",
-
-                netAmountMinor:
-                  adjustedNetAmountMinor,
-
-                normalizedUnitPriceMinor,
-              };
-            });
-        })
-        .sort(
-          (
-            firstPurchase,
-            secondPurchase,
-          ) =>
-            getTransactionDateValue(
-              secondPurchase,
-            ) -
-            getTransactionDateValue(
-              firstPurchase,
-            ),
-        );
-    },
-  );
+              normalizedUnitPriceMinor,
+            };
+          });
+      })
+      .sort(
+        (firstPurchase, secondPurchase) =>
+          getTransactionDateValue(secondPurchase) -
+          getTransactionDateValue(firstPurchase),
+      );
+  },
+);
 
 function calculateMedian(values) {
   if (values.length === 0) {
     return 0;
   }
 
-  const sortedValues = [
-    ...values,
-  ].sort(
-    (
-      firstValue,
-      secondValue,
-    ) =>
-      firstValue -
-      secondValue,
+  const sortedValues = [...values].sort(
+    (firstValue, secondValue) => firstValue - secondValue,
   );
 
-  const middleIndex = Math.floor(
-    sortedValues.length / 2,
-  );
+  const middleIndex = Math.floor(sortedValues.length / 2);
 
-  if (
-    sortedValues.length % 2 === 1
-  ) {
-    return sortedValues[
-      middleIndex
-    ];
+  if (sortedValues.length % 2 === 1) {
+    return sortedValues[middleIndex];
   }
 
   return Math.round(
-    (sortedValues[
-      middleIndex - 1
-    ] +
-      sortedValues[
-        middleIndex
-      ]) /
-      2,
+    (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) / 2,
   );
 }
 
-// 6.GÜN - Seçilen ürünün normalize birimlerine göre minimum, maksimum, ortalama, medyan ve son fiyatını hesaplayan selector oluşturuldu.
-export const selectProductPriceAnalysis =
-  createSelector(
-    [selectProductPurchaseHistory],
-    (purchaseHistory) => {
-      const purchasesByUnit =
-        purchaseHistory.reduce(
-          (
-            groupedPurchases,
-            purchase,
-          ) => {
-            const normalizedUnit =
-              purchase.normalizedUnit;
+// =====================================================
+// Ürün fiyat analizi
+// =====================================================
 
-            if (
-              !normalizedUnit ||
-              purchase.normalizedUnitPriceMinor <=
-                0
-            ) {
-              return groupedPurchases;
-            }
+export const selectProductPriceAnalysis = createSelector(
+  [selectProductPurchaseHistory],
 
-            if (
-              !groupedPurchases[
-                normalizedUnit
-              ]
-            ) {
-              groupedPurchases[
-                normalizedUnit
-              ] = [];
-            }
+  (purchaseHistory) => {
+    const purchasesByUnit = purchaseHistory.reduce(
+      (groupedPurchases, purchase) => {
+        const normalizedUnit = purchase.normalizedUnit;
 
-            groupedPurchases[
-              normalizedUnit
-            ].push(purchase);
+        if (!normalizedUnit || purchase.normalizedUnitPriceMinor <= 0) {
+          return groupedPurchases;
+        }
 
-            return groupedPurchases;
-          },
-          {},
+        if (!groupedPurchases[normalizedUnit]) {
+          groupedPurchases[normalizedUnit] = [];
+        }
+
+        groupedPurchases[normalizedUnit].push(purchase);
+
+        return groupedPurchases;
+      },
+      {},
+    );
+
+    return Object.entries(purchasesByUnit).map(
+      ([normalizedUnit, purchases]) => {
+        const prices = purchases.map(
+          (purchase) => purchase.normalizedUnitPriceMinor,
         );
 
-      return Object.entries(
-        purchasesByUnit,
-      ).map(
-        ([
+        const totalPriceMinor = prices.reduce(
+          (total, priceMinor) => total + priceMinor,
+          0,
+        );
+
+        const lastPurchase = purchases[0];
+
+        const previousPurchase = purchases[1];
+
+        const previousPriceMinor =
+          previousPurchase?.normalizedUnitPriceMinor ?? 0;
+
+        const priceChangePercent =
+          previousPriceMinor > 0
+            ? Number(
+                (
+                  ((lastPurchase.normalizedUnitPriceMinor -
+                    previousPriceMinor) /
+                    previousPriceMinor) *
+                  100
+                ).toFixed(2),
+              )
+            : null;
+
+        return {
           normalizedUnit,
-          purchases,
-        ]) => {
-          const prices =
-            purchases.map(
-              (purchase) =>
-                purchase.normalizedUnitPriceMinor,
-            );
 
-          const totalPriceMinor =
-            prices.reduce(
+          purchaseCount: purchases.length,
+
+          minPriceMinor: Math.min(...prices),
+
+          maxPriceMinor: Math.max(...prices),
+
+          averagePriceMinor: Math.round(totalPriceMinor / prices.length),
+
+          medianPriceMinor: calculateMedian(prices),
+
+          lastPriceMinor: lastPurchase.normalizedUnitPriceMinor,
+
+          previousPriceMinor,
+
+          priceChangePercent,
+
+          lastPurchaseDate: lastPurchase.transactionDate,
+        };
+      },
+    );
+  },
+);
+
+// =====================================================
+// 8.GÜN
+// Yakıt satın alma geçmişi
+// =====================================================
+
+export const selectFuelPurchaseHistory = createSelector(
+  [selectTransactions],
+
+  (transactions) =>
+    transactions
+      .filter((transaction) => transaction.transactionType === "Gider")
+      .flatMap((transaction) => {
+        const adjustedLines = allocateRefundToLines(transaction);
+
+        return adjustedLines
+          .filter((line) => line.productType === "fuel")
+          .map((line) => ({
+            transactionId: transaction.id,
+
+            transactionDate:
+              transaction.transactionDate || transaction.createdAtUtc,
+
+            merchantName: transaction.merchantName ?? "",
+
+            branchName: transaction.branchName ?? "",
+
+            fuelType: line.fuelType ?? "other",
+
+            liters: Number(line.liters ?? line.normalizedQuantity ?? 0),
+
+            unitPriceMinor: Number(
+              line.fuelUnitPriceMinor ?? line.normalizedUnitPriceMinor ?? 0,
+            ),
+
+            totalMinor: Number(
+              line.adjustedNetAmountMinor ?? line.netAmountMinor ?? 0,
+            ),
+
+            vehicleId: line.vehicleId ?? "",
+
+            odometer: Number(line.odometer ?? 0),
+          }));
+      })
+      .sort(
+        (firstPurchase, secondPurchase) =>
+          getTransactionDateValue(secondPurchase) -
+          getTransactionDateValue(firstPurchase),
+      ),
+);
+
+// =====================================================
+// 8.GÜN
+// Yakıt türüne göre fiyat analizi
+// =====================================================
+
+export const selectFuelPriceAnalysis = createSelector(
+  [selectFuelPurchaseHistory],
+
+  (history) => {
+    const groupedHistory = history.reduce((result, item) => {
+      if (!result[item.fuelType]) {
+        result[item.fuelType] = [];
+      }
+
+      result[item.fuelType].push(item);
+
+      return result;
+    }, {});
+
+    return Object.entries(groupedHistory).map(([fuelType, items]) => {
+      const prices = items
+        .map((item) => item.unitPriceMinor)
+        .filter((value) => value > 0);
+
+      const lastPurchase = items[0];
+
+      const previousPurchase = items[1];
+
+      const previousPriceMinor = previousPurchase?.unitPriceMinor ?? 0;
+
+      const lastPriceMinor = lastPurchase?.unitPriceMinor ?? 0;
+
+      const priceChangePercent =
+        previousPriceMinor > 0
+          ? Number(
               (
-                total,
-                priceMinor,
-              ) =>
-                total +
-                priceMinor,
-              0,
-            );
+                ((lastPriceMinor - previousPriceMinor) / previousPriceMinor) *
+                100
+              ).toFixed(2),
+            )
+          : null;
 
-          const lastPurchase =
-            purchases[0];
+      return {
+        fuelType,
 
-          const previousPurchase =
-            purchases[1];
+        purchaseCount: items.length,
 
-          const previousPriceMinor =
-            previousPurchase
-              ?.normalizedUnitPriceMinor ??
-            0;
+        minPriceMinor: prices.length > 0 ? Math.min(...prices) : 0,
 
-          const priceChangePercent =
-            previousPriceMinor > 0
-              ? Number(
-                  (
-                    ((lastPurchase.normalizedUnitPriceMinor -
-                      previousPriceMinor) /
-                      previousPriceMinor) *
-                    100
-                  ).toFixed(2),
-                )
-              : null;
+        maxPriceMinor: prices.length > 0 ? Math.max(...prices) : 0,
 
-          return {
-            normalizedUnit,
-
-            purchaseCount:
-              purchases.length,
-
-            minPriceMinor:
-              Math.min(...prices),
-
-            maxPriceMinor:
-              Math.max(...prices),
-
-            averagePriceMinor:
-              Math.round(
-                totalPriceMinor /
+        averagePriceMinor:
+          prices.length > 0
+            ? Math.round(
+                prices.reduce((total, value) => total + value, 0) /
                   prices.length,
-              ),
+              )
+            : 0,
 
-            medianPriceMinor:
-              calculateMedian(
-                prices,
-              ),
+        lastPriceMinor,
 
-            lastPriceMinor:
-              lastPurchase.normalizedUnitPriceMinor,
+        previousPriceMinor,
 
-            previousPriceMinor,
+        priceChangePercent,
 
-            priceChangePercent,
-
-            lastPurchaseDate:
-              lastPurchase.transactionDate,
-          };
-        },
-      );
-    },
-  );
+        lastPurchaseDate: lastPurchase?.transactionDate ?? "",
+      };
+    });
+  },
+);

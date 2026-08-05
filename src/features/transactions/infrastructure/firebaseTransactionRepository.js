@@ -8,608 +8,246 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 
 import { db } from "../../../firebase";
 
-function convertAmountToMinor(amount) {
-  const numericAmount = Number(amount);
+import {
+  allocateTransactionDiscount,
+  calculateExpenseTotals,
+  calculateLineAmounts,
+  calculateRefundStatus,
+  convertAmountToMinor,
+  convertOptionalAmountToMinor,
+  validateTransactionTotals,
+} from "../domain/transactionCalculations";
 
-  if (
-    !Number.isFinite(numericAmount) ||
-    numericAmount <= 0
-  ) {
-    throw new Error(
-      "TRANSACTION_INVALID_AMOUNT",
-    );
-  }
+// =====================================================
+// Firestore Timestamp değerlerini ISO tarih metnine
+// dönüştürür.
+// =====================================================
 
-  return Math.round(
-    numericAmount * 100,
-  );
-}
-
-function convertOptionalAmountToMinor(
-  amount,
-) {
-  if (
-    amount === "" ||
-    amount === null ||
-    amount === undefined
-  ) {
-    return 0;
-  }
-
-  const numericAmount = Number(amount);
-
-  if (
-    !Number.isFinite(numericAmount) ||
-    numericAmount < 0
-  ) {
-    throw new Error(
-      "TRANSACTION_INVALID_DISCOUNT",
-    );
-  }
-
-  return Math.round(
-    numericAmount * 100,
-  );
-}
-
-function convertPositiveNumber(
-  value,
-  fallbackValue,
-) {
-  if (
-    value === "" ||
-    value === null ||
-    value === undefined
-  ) {
-    return fallbackValue;
-  }
-
-  const numericValue = Number(value);
-
-  if (
-    !Number.isFinite(numericValue) ||
-    numericValue <= 0
-  ) {
-    throw new Error(
-      "TRANSACTION_INVALID_QUANTITY",
-    );
-  }
-
-  return numericValue;
-}
-
-function convertTimestampToIsoString(
-  timestampValue,
-) {
+function convertTimestampToIsoString(timestampValue) {
   if (!timestampValue) {
     return "";
   }
 
-  if (
-    typeof timestampValue.toDate ===
-    "function"
-  ) {
-    return timestampValue
-      .toDate()
-      .toISOString();
+  if (typeof timestampValue.toDate === "function") {
+    return timestampValue.toDate().toISOString();
   }
 
-  if (
-    typeof timestampValue === "string"
-  ) {
+  if (typeof timestampValue === "string") {
     return timestampValue;
   }
 
   return "";
 }
 
-function calculateProductMetrics(
-  line,
-  netAmountMinor,
-) {
-  const hasProductInformation =
-    Boolean(
-      line.productId ||
-        line.productName,
-    );
+// =====================================================
+// Bütün finansal kayıtlarda kullanılacak ortak audit
+// alanlarını oluşturur.
+// =====================================================
 
-  if (!hasProductInformation) {
-    return {
-      purchaseQuantity: 0,
-      unitCount: 0,
-      unitSize: 0,
-      unitType: "",
-      normalizedQuantity: 0,
-      normalizedUnit: "",
-      normalizedUnitPriceMinor: 0,
-      unitPriceMinor: 0,
-    };
-  }
-
-  const purchaseQuantity =
-    convertPositiveNumber(
-      line.purchaseQuantity,
-      1,
-    );
-
-  const unitCount =
-    convertPositiveNumber(
-      line.unitCount,
-      1,
-    );
-
-  const unitSize =
-    convertPositiveNumber(
-      line.unitSize,
-      1,
-    );
-
-  const unitType =
-    line.unitType || "piece";
-
-  const totalUnitQuantity =
-    purchaseQuantity *
-    unitCount *
-    unitSize;
-
-  let normalizedQuantity = 0;
-  let normalizedUnit = "";
-
-  if (unitType === "ml") {
-    normalizedQuantity =
-      totalUnitQuantity / 1000;
-
-    normalizedUnit = "L";
-  } else if (unitType === "l") {
-    normalizedQuantity =
-      totalUnitQuantity;
-
-    normalizedUnit = "L";
-  } else if (unitType === "g") {
-    normalizedQuantity =
-      totalUnitQuantity / 1000;
-
-    normalizedUnit = "kg";
-  } else if (unitType === "kg") {
-    normalizedQuantity =
-      totalUnitQuantity;
-
-    normalizedUnit = "kg";
-  } else {
-    normalizedQuantity =
-      totalUnitQuantity;
-
-    normalizedUnit = "adet";
-  }
-
-  const enteredUnitPriceMinor =
-    convertOptionalAmountToMinor(
-      line.unitPrice,
-    );
-
-  const unitPriceMinor =
-    enteredUnitPriceMinor > 0
-      ? enteredUnitPriceMinor
-      : Math.round(
-          netAmountMinor /
-            purchaseQuantity,
-        );
-
-  const normalizedUnitPriceMinor =
-    normalizedQuantity > 0
-      ? Math.round(
-          netAmountMinor /
-            normalizedQuantity,
-        )
-      : 0;
-
+function createDefaultAuditFields(userId) {
   return {
-    purchaseQuantity,
-    unitCount,
-    unitSize,
-    unitType,
-    normalizedQuantity,
-    normalizedUnit,
-    normalizedUnitPriceMinor,
-    unitPriceMinor,
+    ownerId: userId,
+
+    createdBy: userId,
+
+    updatedBy: userId,
+
+    isDeleted: false,
+
+    version: 1,
   };
 }
 
-function allocateTransactionDiscount(
-  lines,
-  transactionDiscountMinor,
-) {
-  if (
-    transactionDiscountMinor === 0
-  ) {
-    return lines.map((line) => {
-      const netAmountMinor =
-        line.amountAfterLineDiscountMinor;
+// =====================================================
+// Tek bir gider satırını kayıt için hazırlar.
+// =====================================================
 
-      return {
-        ...line,
-
-        allocatedTransactionDiscountMinor:
-          0,
-
-        netAmountMinor,
-
-        ...calculateProductMetrics(
-          line,
-          netAmountMinor,
-        ),
-      };
-    });
+function prepareExpenseLine(line, index) {
+  if (!line.categoryId) {
+    throw new Error("TRANSACTION_LINE_CATEGORY_REQUIRED");
   }
 
-  const totalAfterLineDiscountMinor =
-    lines.reduce(
-      (total, line) =>
-        total +
-        line.amountAfterLineDiscountMinor,
-      0,
-    );
+  const amountResult = calculateLineAmounts(line);
 
-  if (
-    transactionDiscountMinor >
-    totalAfterLineDiscountMinor
-  ) {
-    throw new Error(
-      "TRANSACTION_INVALID_DISCOUNT",
-    );
-  }
+  return {
+    id: line.id ?? `line-${index + 1}`,
 
-  const discountShares = lines.map(
-    (line, index) => {
-      const exactNumerator =
-        transactionDiscountMinor *
-        line.amountAfterLineDiscountMinor;
+    categoryId: line.categoryId,
 
-      return {
-        index,
+    category: line.category ?? "",
 
-        allocatedMinor: Math.floor(
-          exactNumerator /
-            totalAfterLineDiscountMinor,
-        ),
+    categoryPath: line.categoryPath ?? line.category ?? "",
 
-        remainder:
-          exactNumerator %
-          totalAfterLineDiscountMinor,
-      };
-    },
-  );
+    categoryPathIds: Array.isArray(line.categoryPathIds)
+      ? line.categoryPathIds
+      : [],
 
-  const allocatedTotalMinor =
-    discountShares.reduce(
-      (total, share) =>
-        total +
-        share.allocatedMinor,
-      0,
-    );
+    categoryType: line.categoryType ?? "expense",
 
-  let remainingDiscountMinor =
-    transactionDiscountMinor -
-    allocatedTotalMinor;
+    productId: line.productId ?? "",
 
-  const sharesByRemainder = [
-    ...discountShares,
-  ].sort(
-    (firstShare, secondShare) =>
-      secondShare.remainder -
-        firstShare.remainder ||
-      firstShare.index -
-        secondShare.index,
-  );
+    productName: line.productName ?? "",
 
-  for (
-    let index = 0;
-    index <
-      sharesByRemainder.length &&
-    remainingDiscountMinor > 0;
-    index += 1
-  ) {
-    sharesByRemainder[
-      index
-    ].allocatedMinor += 1;
+    productType: line.productType === "fuel" ? "fuel" : "standard",
 
-    remainingDiscountMinor -= 1;
-  }
+    fuelType: line.productType === "fuel" ? (line.fuelType ?? "other") : "",
 
-  return lines.map(
-    (line, index) => {
-      const relatedShare =
-        discountShares.find(
-          (share) =>
-            share.index === index,
-        );
+    liters: line.productType === "fuel" ? line.liters : "",
 
-      const allocatedTransactionDiscountMinor =
-        relatedShare
-          ?.allocatedMinor ?? 0;
+    fuelUnitPrice: line.productType === "fuel" ? line.fuelUnitPrice : "",
 
-      const netAmountMinor =
-        line.amountAfterLineDiscountMinor -
-        allocatedTransactionDiscountMinor;
+    vehicleId:
+      line.productType === "fuel" ? (line.vehicleId?.trim() ?? "") : "",
 
-      return {
-        ...line,
+    odometer: line.productType === "fuel" ? line.odometer : "",
 
-        allocatedTransactionDiscountMinor,
+    brandId: line.brandId ?? "",
 
-        netAmountMinor,
+    brandName: line.brandName ?? "",
 
-        ...calculateProductMetrics(
-          line,
-          netAmountMinor,
-        ),
-      };
-    },
-  );
+    purchaseQuantity: line.purchaseQuantity,
+
+    unitCount: line.unitCount,
+
+    unitSize: line.unitSize,
+
+    unitType: line.unitType ?? "adet",
+
+    unitPrice: line.unitPrice,
+
+    note: line.note?.trim() ?? "",
+
+    ...amountResult,
+  };
 }
 
-function prepareExpenseLines(
-  transaction,
-) {
+// =====================================================
+// Gider işlemindeki bütün satırları hazırlar ve genel
+// indirimi satırlara dağıtır.
+// =====================================================
+
+function prepareExpenseLines(transaction) {
   const receivedLines =
-    Array.isArray(
-      transaction.lines,
-    ) &&
-    transaction.lines.length > 0
+    Array.isArray(transaction.lines) && transaction.lines.length > 0
       ? transaction.lines
       : [
           {
             id: "line-1",
 
-            categoryId:
-              transaction.categoryId,
+            categoryId: transaction.categoryId,
 
-            category:
-              transaction.category,
+            category: transaction.category,
 
-            categoryPath:
-              transaction.categoryPath,
+            categoryPath: transaction.categoryPath,
 
-            categoryPathIds:
-              transaction.categoryPathIds,
+            categoryPathIds: transaction.categoryPathIds,
 
-            categoryType:
-              transaction.categoryType,
+            categoryType: transaction.categoryType,
 
-            amount:
-              transaction.amount,
+            amount: transaction.amount,
 
             discount: 0,
           },
         ];
 
-  const preparedLines =
-    receivedLines.map(
-      (line, index) => {
-        if (!line.categoryId) {
-          throw new Error(
-            "TRANSACTION_LINE_CATEGORY_REQUIRED",
-          );
-        }
+  const preparedLines = receivedLines.map(prepareExpenseLine);
 
-        const grossAmountMinor =
-          convertAmountToMinor(
-            line.amount,
-          );
-
-        const lineDiscountMinor =
-          convertOptionalAmountToMinor(
-            line.discount,
-          );
-
-        if (
-          lineDiscountMinor >
-          grossAmountMinor
-        ) {
-          throw new Error(
-            "TRANSACTION_INVALID_DISCOUNT",
-          );
-        }
-
-        return {
-          id:
-            line.id ??
-            `line-${index + 1}`,
-
-          categoryId:
-            line.categoryId,
-
-          category:
-            line.category ?? "",
-
-          categoryPath:
-            line.categoryPath ??
-            line.category ??
-            "",
-
-          categoryPathIds:
-            Array.isArray(
-              line.categoryPathIds,
-            )
-              ? line.categoryPathIds
-              : [],
-
-          categoryType:
-            line.categoryType ??
-            "expense",
-
-          // 6.GÜN - Ürün ve marka bilgileri gider satırına eklendi.
-          productId:
-            line.productId ?? "",
-
-          productName:
-            line.productName ?? "",
-
-          brandId:
-            line.brandId ?? "",
-
-          brandName:
-            line.brandName ?? "",
-
-          purchaseQuantity:
-            line.purchaseQuantity,
-
-          unitCount:
-            line.unitCount,
-
-          unitSize:
-            line.unitSize,
-
-          unitType:
-            line.unitType,
-
-          unitPrice:
-            line.unitPrice,
-
-          grossAmountMinor,
-
-          lineDiscountMinor,
-
-          amountAfterLineDiscountMinor:
-            grossAmountMinor -
-            lineDiscountMinor,
-        };
-      },
-    );
-
-  const transactionDiscountMinor =
-    convertOptionalAmountToMinor(
-      transaction.transactionDiscount,
-    );
-
-  return allocateTransactionDiscount(
-    preparedLines,
-    transactionDiscountMinor,
+  const transactionDiscountMinor = convertOptionalAmountToMinor(
+    transaction.transactionDiscount,
   );
+
+  return allocateTransactionDiscount(preparedLines, transactionDiscountMinor);
 }
 
-function mapTransactionLine(
-  line,
-  index,
-) {
-  const grossAmountMinor =
-    Number.isInteger(
-      line.grossAmountMinor,
-    )
-      ? line.grossAmountMinor
-      : Number.isInteger(
-            line.amountMinor,
-          )
-        ? line.amountMinor
-        : 0;
+// =====================================================
+// Firestore'dan gelen tek bir işlem satırını uygulama
+// modeline dönüştürür.
+// =====================================================
 
-  const lineDiscountMinor =
-    Number.isInteger(
-      line.lineDiscountMinor,
-    )
-      ? line.lineDiscountMinor
+function mapTransactionLine(line, index) {
+  const grossAmountMinor = Number.isInteger(line.grossAmountMinor)
+    ? line.grossAmountMinor
+    : Number.isInteger(line.amountMinor)
+      ? line.amountMinor
       : 0;
 
-  const allocatedTransactionDiscountMinor =
-    Number.isInteger(
-      line.allocatedTransactionDiscountMinor,
-    )
-      ? line.allocatedTransactionDiscountMinor
-      : 0;
+  const lineDiscountMinor = Number.isInteger(line.lineDiscountMinor)
+    ? line.lineDiscountMinor
+    : 0;
 
-  const netAmountMinor =
-    Number.isInteger(
-      line.netAmountMinor,
-    )
-      ? line.netAmountMinor
-      : grossAmountMinor -
-        lineDiscountMinor -
-        allocatedTransactionDiscountMinor;
+  const allocatedTransactionDiscountMinor = Number.isInteger(
+    line.allocatedTransactionDiscountMinor,
+  )
+    ? line.allocatedTransactionDiscountMinor
+    : 0;
+
+  const netAmountMinor = Number.isInteger(line.netAmountMinor)
+    ? line.netAmountMinor
+    : grossAmountMinor - lineDiscountMinor - allocatedTransactionDiscountMinor;
 
   return {
-    id:
-      line.id ??
-      `line-${index + 1}`,
+    id: line.id ?? `line-${index + 1}`,
 
-    categoryId:
-      line.categoryId ?? "",
+    categoryId: line.categoryId ?? "",
 
-    category:
-      line.category ?? "",
+    category: line.category ?? "",
 
-    categoryPath:
-      line.categoryPath ??
-      line.category ??
-      "",
+    categoryPath: line.categoryPath ?? line.category ?? "",
 
-    categoryPathIds:
-      Array.isArray(
-        line.categoryPathIds,
-      )
-        ? line.categoryPathIds
-        : [],
+    categoryPathIds: Array.isArray(line.categoryPathIds)
+      ? line.categoryPathIds
+      : [],
 
-    categoryType:
-      line.categoryType ??
-      "expense",
+    categoryType: line.categoryType ?? "expense",
 
-    // 6.GÜN - Ürün, marka, miktar ve normalize fiyat bilgileri uygulama modeline eklendi.
-    productId:
-      line.productId ?? "",
+    productId: line.productId ?? "",
 
-    productName:
-      line.productName ?? "",
+    productName: line.productName ?? "",
 
-    brandId:
-      line.brandId ?? "",
+    productType: line.productType === "fuel" ? "fuel" : "standard",
 
-    brandName:
-      line.brandName ?? "",
+    fuelType: line.fuelType ?? "",
 
-    purchaseQuantity:
-      Number(
-        line.purchaseQuantity ?? 0,
-      ),
+    liters: Number(line.liters ?? line.normalizedQuantity ?? 0),
 
-    unitCount:
-      Number(
-        line.unitCount ?? 0,
-      ),
-
-    unitSize:
-      Number(
-        line.unitSize ?? 0,
-      ),
-
-    unitType:
-      line.unitType ?? "",
-
-    normalizedQuantity:
-      Number(
-        line.normalizedQuantity ??
-          0,
-      ),
-
-    normalizedUnit:
-      line.normalizedUnit ?? "",
-
-    unitPriceMinor:
-      Number.isInteger(
-        line.unitPriceMinor,
-      )
-        ? line.unitPriceMinor
-        : 0,
-
-    normalizedUnitPriceMinor:
-      Number.isInteger(
-        line.normalizedUnitPriceMinor,
-      )
+    fuelUnitPriceMinor: Number.isInteger(line.fuelUnitPriceMinor)
+      ? line.fuelUnitPriceMinor
+      : Number.isInteger(line.normalizedUnitPriceMinor)
         ? line.normalizedUnitPriceMinor
         : 0,
+
+    vehicleId: line.vehicleId ?? "",
+
+    odometer: Number(line.odometer ?? 0),
+
+    brandId: line.brandId ?? "",
+
+    brandName: line.brandName ?? "",
+
+    purchaseQuantity: Number(line.purchaseQuantity ?? 0),
+
+    unitCount: Number(line.unitCount ?? 0),
+
+    unitSize: Number(line.unitSize ?? 0),
+
+    unitType: line.unitType ?? "",
+
+    normalizedQuantity: Number(line.normalizedQuantity ?? 0),
+
+    normalizedUnit: line.normalizedUnit ?? "",
+
+    unitPriceMinor: Number.isInteger(line.unitPriceMinor)
+      ? line.unitPriceMinor
+      : 0,
+
+    normalizedUnitPriceMinor: Number.isInteger(line.normalizedUnitPriceMinor)
+      ? line.normalizedUnitPriceMinor
+      : 0,
 
     grossAmountMinor,
 
@@ -619,308 +257,211 @@ function mapTransactionLine(
 
     netAmountMinor,
 
-    amount:
-      grossAmountMinor / 100,
+    refundedMinor: Number.isInteger(line.refundedMinor)
+      ? line.refundedMinor
+      : 0,
 
-    discount:
-      lineDiscountMinor / 100,
+    refundStatus: line.refundStatus ?? "none",
+
+    note: line.note ?? "",
+
+    amount: grossAmountMinor / 100,
+
+    discount: lineDiscountMinor / 100,
   };
 }
 
-function mapTransactionDocument(
-  transactionDocument,
-) {
-  const data =
-    transactionDocument.data();
+// =====================================================
+// Firestore işlem belgesini uygulamanın kullanacağı
+// transaction modeline dönüştürür.
+// =====================================================
 
-  // 5.2.GÜN - Çok satırlı gider bilgileri Firestore belgesinden uygulama modeline dönüştürüldü.
-  const lines = Array.isArray(
-    data.lines,
-  )
-    ? data.lines.map(
-        mapTransactionLine,
-      )
+function mapTransactionDocument(transactionDocument) {
+  const data = transactionDocument.data();
+
+  const lines = Array.isArray(data.lines)
+    ? data.lines.map(mapTransactionLine)
     : [];
 
-  const calculatedLinesTotalMinor =
-    lines.reduce(
-      (total, line) =>
-        total +
-        line.netAmountMinor,
-      0,
-    );
+  const calculatedLinesTotalMinor = lines.reduce(
+    (total, line) => total + Number(line.netAmountMinor ?? 0),
+    0,
+  );
 
-  const amountMinor =
-    Number.isInteger(
-      data.amountMinor,
-    )
-      ? data.amountMinor
-      : lines.length > 0
-        ? calculatedLinesTotalMinor
-        : Math.round(
-            Number(
-              data.amount ?? 0,
-            ) * 100,
-          );
+  const amountMinor = Number.isInteger(data.amountMinor)
+    ? data.amountMinor
+    : calculatedLinesTotalMinor;
 
   return {
     id: transactionDocument.id,
 
-    transactionType:
-      data.transactionType ?? "",
+    ownerId: data.ownerId ?? "",
 
-    // 4.GÜN - Gelir gider kategori bilgisi eklendi.
-    category:
-      data.category ?? "",
+    transactionType: data.transactionType ?? "",
 
-    // 5.GÜN - Kategori kimliği ve kategori yolu işlem modeline eklendi.
-    categoryId:
-      data.categoryId ?? "",
+    category: data.category ?? "",
 
-    categoryPath:
-      data.categoryPath ??
-      data.category ??
-      "",
+    categoryId: data.categoryId ?? "",
 
-    categoryPathIds:
-      Array.isArray(
-        data.categoryPathIds,
-      )
-        ? data.categoryPathIds
-        : [],
+    categoryPath: data.categoryPath ?? data.category ?? "",
 
-    categoryType:
-      data.categoryType ?? "",
+    categoryPathIds: Array.isArray(data.categoryPathIds)
+      ? data.categoryPathIds
+      : [],
 
-    // 4.GÜN - Kullanıcının girdiği miktar bilgisi eklendi.
-    amount:
-      amountMinor / 100,
+    categoryType: data.categoryType ?? "",
 
-    // 5.GÜN - Para miktarı kuruş cinsinden tam sayı olarak saklandı.
+    amount: amountMinor / 100,
+
     amountMinor,
 
-    // 5.2.GÜN - Gider satırları, indirim ve kupon bilgileri işlem modeline eklendi.
     transactionMode:
-      data.transactionMode ??
-      (lines.length > 1
-        ? "multiLine"
-        : "singleLine"),
+      data.transactionMode ?? (lines.length > 1 ? "multiLine" : "singleLine"),
 
     lines,
 
-    subtotalMinor:
-      Number.isInteger(
-        data.subtotalMinor,
-      )
-        ? data.subtotalMinor
-        : amountMinor,
+    subtotalMinor: Number.isInteger(data.subtotalMinor)
+      ? data.subtotalMinor
+      : amountMinor,
 
-    lineDiscountTotalMinor:
-      Number.isInteger(
-        data.lineDiscountTotalMinor,
-      )
-        ? data.lineDiscountTotalMinor
-        : 0,
+    lineDiscountTotalMinor: Number.isInteger(data.lineDiscountTotalMinor)
+      ? data.lineDiscountTotalMinor
+      : 0,
 
-    transactionDiscountMinor:
-      Number.isInteger(
-        data.transactionDiscountMinor,
-      )
-        ? data.transactionDiscountMinor
-        : 0,
+    transactionDiscountMinor: Number.isInteger(data.transactionDiscountMinor)
+      ? data.transactionDiscountMinor
+      : 0,
 
-    couponCode:
-      data.couponCode ?? "",
+    couponCode: data.couponCode ?? "",
 
-    paymentMethod:
-      data.paymentMethod ?? "",
+    description: data.description ?? "",
 
-    transactionDate:
-      data.transactionDate ?? "",
+    paymentMethod: data.paymentMethod ?? "",
 
-    // 6.GÜN - Firma ve şube bilgileri işlem modeline eklendi.
-    merchantId:
-      data.merchantId ?? "",
+    transactionDate: data.transactionDate ?? "",
 
-    merchantName:
-      data.merchantName ?? "",
+    merchantId: data.merchantId ?? "",
 
-    branchId:
-      data.branchId ?? "",
+    merchantName: data.merchantName ?? "",
 
-    branchName:
-      data.branchName ?? "",
+    branchId: data.branchId ?? "",
 
-    // 6.GÜN - İade işlem ilişkisi ve iade durumu işlem modeline eklendi.
-    originalTransactionId:
-      data.originalTransactionId ??
-      "",
+    branchName: data.branchName ?? "",
 
-    refundedMinor:
-      Number.isInteger(
-        data.refundedMinor,
-      )
-        ? data.refundedMinor
-        : 0,
+    originalTransactionId: data.originalTransactionId ?? "",
 
-    refundStatus:
-      data.refundStatus ?? "none",
+    refundedMinor: Number.isInteger(data.refundedMinor)
+      ? data.refundedMinor
+      : 0,
 
-    refundReason:
-      data.refundReason ?? "",
+    refundStatus: data.refundStatus ?? "none",
 
-    createdAtUtc:
-      convertTimestampToIsoString(
-        data.createdAtUtc,
-      ),
+    refundReason: data.refundReason ?? "",
 
-    updatedAtUtc:
-      convertTimestampToIsoString(
-        data.updatedAtUtc,
-      ),
+    refundedLines: Array.isArray(data.refundedLines) ? data.refundedLines : [],
+
+    createdAtUtc: convertTimestampToIsoString(data.createdAtUtc),
+
+    updatedAtUtc: convertTimestampToIsoString(data.updatedAtUtc),
+
+    createdBy: data.createdBy ?? "",
+
+    updatedBy: data.updatedBy ?? "",
+
+    isDeleted: Boolean(data.isDeleted),
+
+    version: Number(data.version ?? 1),
   };
 }
 
-// 3.GÜN - Gelir ve gider kayıtlarının Firestore'a eklenmesi sağlandı.
-// 4.GÜN - Gelir gider kategori ve miktar kaydı eklendi.
-// 5.GÜN - Kategori ağacı bilgileri ve kuruş bazlı miktar kaydı eklendi.
-// 5.2.GÜN - Tek ve çok satırlı giderler ile indirim bilgileri aynı işlem belgesinde saklandı.
-// 6.GÜN - Firma, şube, ürün, marka, miktar ve normalize fiyat bilgileri işlem kaydına eklendi.
-export async function createTransaction(
-  userId,
-  transaction,
-) {
-  const isExpense =
-    transaction.transactionType ===
-    "Gider";
+// =====================================================
+// Yeni gelir veya gider kaydı oluşturur.
+// =====================================================
+
+export async function createTransaction(userId, transaction) {
+  if (!userId) {
+    throw new Error("TRANSACTION_USER_REQUIRED");
+  }
+
+  if (!transaction.transactionDate) {
+    throw new Error("TRANSACTION_DATE_REQUIRED");
+  }
+
+  if (!transaction.paymentMethod) {
+    throw new Error("TRANSACTION_PAYMENT_METHOD_REQUIRED");
+  }
+
+  const isExpense = transaction.transactionType === "Gider";
 
   let transactionData;
 
   if (isExpense) {
-    const preparedLines =
-      prepareExpenseLines(
-        transaction,
-      );
+    const preparedLines = prepareExpenseLines(transaction);
 
-    const subtotalMinor =
-      preparedLines.reduce(
-        (total, line) =>
-          total +
-          line.grossAmountMinor,
-        0,
-      );
+    const totals = calculateExpenseTotals(preparedLines);
 
-    const lineDiscountTotalMinor =
-      preparedLines.reduce(
-        (total, line) =>
-          total +
-          line.lineDiscountMinor,
-        0,
-      );
-
-    const transactionDiscountMinor =
-      preparedLines.reduce(
-        (total, line) =>
-          total +
-          line.allocatedTransactionDiscountMinor,
-        0,
-      );
-
-    const amountMinor =
-      preparedLines.reduce(
-        (total, line) =>
-          total +
-          line.netAmountMinor,
-        0,
-      );
-
-    if (amountMinor <= 0) {
-      throw new Error(
-        "TRANSACTION_INVALID_AMOUNT",
-      );
+    if (totals.amountMinor <= 0) {
+      throw new Error("TRANSACTION_INVALID_AMOUNT");
     }
 
-    const firstLine =
-      preparedLines[0];
+    validateTransactionTotals({
+      lines: preparedLines,
 
-    const hasMultipleCategories =
-      new Set(
-        preparedLines.map(
-          (line) =>
-            line.categoryId,
-        ),
-      ).size > 1;
+      amountMinor: totals.amountMinor,
+    });
+
+    const firstLine = preparedLines[0];
+
+    const uniqueCategoryIds = new Set(
+      preparedLines.map((line) => line.categoryId),
+    );
+
+    const hasMultipleCategories = uniqueCategoryIds.size > 1;
 
     transactionData = {
-      ownerId: userId,
+      ...createDefaultAuditFields(userId),
 
-      transactionType:
-        transaction.transactionType,
+      transactionType: "Gider",
 
-      category:
-        hasMultipleCategories
-          ? "Çoklu Kategori"
-          : firstLine.category,
+      category: hasMultipleCategories ? "Çoklu Kategori" : firstLine.category,
 
-      categoryId:
-        hasMultipleCategories
-          ? ""
-          : firstLine.categoryId,
+      categoryId: hasMultipleCategories ? "" : firstLine.categoryId,
 
-      categoryPath:
-        hasMultipleCategories
-          ? "Çoklu Kategori"
-          : firstLine.categoryPath,
+      categoryPath: hasMultipleCategories
+        ? "Çoklu Kategori"
+        : firstLine.categoryPath,
 
-      categoryPathIds:
-        hasMultipleCategories
-          ? []
-          : firstLine.categoryPathIds,
+      categoryPathIds: hasMultipleCategories ? [] : firstLine.categoryPathIds,
 
       categoryType: "expense",
 
-      transactionMode:
-        preparedLines.length > 1
-          ? "multiLine"
-          : "singleLine",
+      transactionMode: preparedLines.length > 1 ? "multiLine" : "singleLine",
 
-      lines: preparedLines,
+      lines: preparedLines.map((line) => ({
+        ...line,
 
-      subtotalMinor,
+        refundedMinor: 0,
 
-      lineDiscountTotalMinor,
+        refundStatus: "none",
+      })),
 
-      transactionDiscountMinor,
+      ...totals,
 
-      amountMinor,
+      couponCode: transaction.couponCode?.trim() ?? "",
 
-      couponCode:
-        transaction.couponCode
-          ?.trim() ?? "",
+      description: transaction.description?.trim() ?? "",
 
-      paymentMethod:
-        transaction.paymentMethod ??
-        "",
+      paymentMethod: transaction.paymentMethod,
 
-      transactionDate:
-        transaction.transactionDate ??
-        "",
+      transactionDate: transaction.transactionDate,
 
-      // 6.GÜN - Firma ve şube kimlikleri ad bilgileriyle birlikte kaydedildi.
-      merchantId:
-        transaction.merchantId ??
-        "",
+      merchantId: transaction.merchantId ?? "",
 
-      merchantName:
-        transaction.merchantName ??
-        "",
+      merchantName: transaction.merchantName ?? "",
 
-      branchId:
-        transaction.branchId ?? "",
+      branchId: transaction.branchId ?? "",
 
-      branchName:
-        transaction.branchName ??
-        "",
+      branchName: transaction.branchName ?? "",
 
       refundedMinor: 0,
 
@@ -929,51 +470,39 @@ export async function createTransaction(
       originalTransactionId: "",
 
       refundReason: "",
+
+      refundedLines: [],
     };
   } else {
-    const amountMinor =
-      convertAmountToMinor(
-        transaction.amount,
-      );
+    if (!transaction.categoryId) {
+      throw new Error("TRANSACTION_CATEGORY_REQUIRED");
+    }
+
+    const amountMinor = convertAmountToMinor(transaction.amount);
 
     transactionData = {
-      ownerId: userId,
+      ...createDefaultAuditFields(userId),
 
-      transactionType:
-        transaction.transactionType,
+      transactionType: "Gelir",
 
-      // 5.2.GÜN - Gelir kaydı kategori seçilmeden de oluşturulabilir hale getirildi.
-      category:
-        transaction.category ||
-        "Genel Gelir",
+      category: transaction.category || "Genel Gelir",
 
-      categoryId:
-        transaction.categoryId ??
-        "",
+      categoryId: transaction.categoryId,
 
       categoryPath:
-        transaction.categoryPath ||
-        transaction.category ||
-        "Genel Gelir",
+        transaction.categoryPath || transaction.category || "Genel Gelir",
 
-      categoryPathIds:
-        Array.isArray(
-          transaction.categoryPathIds,
-        )
-          ? transaction.categoryPathIds
-          : [],
+      categoryPathIds: Array.isArray(transaction.categoryPathIds)
+        ? transaction.categoryPathIds
+        : [],
 
-      categoryType:
-        transaction.categoryType ||
-        "income",
+      categoryType: "income",
 
-      transactionMode:
-        "singleLine",
+      transactionMode: "singleLine",
 
       lines: [],
 
-      subtotalMinor:
-        amountMinor,
+      subtotalMinor: amountMinor,
 
       lineDiscountTotalMinor: 0,
 
@@ -983,13 +512,11 @@ export async function createTransaction(
 
       couponCode: "",
 
-      paymentMethod:
-        transaction.paymentMethod ??
-        "",
+      description: transaction.description?.trim() ?? "",
 
-      transactionDate:
-        transaction.transactionDate ??
-        "",
+      paymentMethod: transaction.paymentMethod,
+
+      transactionDate: transaction.transactionDate,
 
       merchantId: "",
 
@@ -1006,279 +533,312 @@ export async function createTransaction(
       originalTransactionId: "",
 
       refundReason: "",
+
+      refundedLines: [],
     };
   }
 
-  const transactionReference =
-    await addDoc(
-      collection(
-        db,
-        "users",
-        userId,
-        "transactions",
-      ),
-      {
-        ...transactionData,
+  const transactionReference = await addDoc(
+    collection(db, "users", userId, "transactions"),
+    {
+      ...transactionData,
 
-        createdAtUtc:
-          serverTimestamp(),
+      createdAtUtc: serverTimestamp(),
 
-        updatedAtUtc:
-          serverTimestamp(),
-      },
-    );
-
-  const transactionSnapshot =
-    await getDoc(
-      transactionReference,
-    );
-
-  return mapTransactionDocument(
-    transactionSnapshot,
-  );
-}
-
-// 6.GÜN - Tam veya kısmi iadenin orijinal gider kaydıyla bağlantılı oluşturulması sağlandı.
-export async function createRefundTransaction(
-  userId,
-  refund,
-) {
-  if (
-    !refund.originalTransactionId
-  ) {
-    throw new Error(
-      "REFUND_ORIGINAL_REQUIRED",
-    );
-  }
-
-  const refundAmountMinor =
-    convertAmountToMinor(
-      refund.amount,
-    );
-
-  const originalTransactionReference =
-    doc(
-      db,
-      "users",
-      userId,
-      "transactions",
-      refund.originalTransactionId,
-    );
-
-  const refundTransactionReference =
-    doc(
-      collection(
-        db,
-        "users",
-        userId,
-        "transactions",
-      ),
-    );
-
-  await runTransaction(
-    db,
-    async (
-      firestoreTransaction,
-    ) => {
-      const originalSnapshot =
-        await firestoreTransaction.get(
-          originalTransactionReference,
-        );
-
-      if (
-        !originalSnapshot.exists()
-      ) {
-        throw new Error(
-          "REFUND_ORIGINAL_NOT_FOUND",
-        );
-      }
-
-      const originalData =
-        originalSnapshot.data();
-
-      if (
-        originalData.transactionType !==
-        "Gider"
-      ) {
-        throw new Error(
-          "REFUND_ONLY_EXPENSE",
-        );
-      }
-
-      const originalAmountMinor =
-        Number(
-          originalData.amountMinor ??
-            0,
-        );
-
-      const currentRefundedMinor =
-        Number(
-          originalData.refundedMinor ??
-            0,
-        );
-
-      const remainingRefundableMinor =
-        originalAmountMinor -
-        currentRefundedMinor;
-
-      if (
-        remainingRefundableMinor <= 0 ||
-        refundAmountMinor >
-          remainingRefundableMinor
-      ) {
-        throw new Error(
-          "REFUND_AMOUNT_EXCEEDED",
-        );
-      }
-
-      const newRefundedMinor =
-        currentRefundedMinor +
-        refundAmountMinor;
-
-      const refundStatus =
-        newRefundedMinor ===
-        originalAmountMinor
-          ? "full"
-          : "partial";
-
-      firestoreTransaction.update(
-        originalTransactionReference,
-        {
-          refundedMinor:
-            newRefundedMinor,
-
-          refundStatus,
-
-          updatedAtUtc:
-            serverTimestamp(),
-        },
-      );
-
-      firestoreTransaction.set(
-        refundTransactionReference,
-        {
-          ownerId: userId,
-
-          transactionType: "İade",
-
-          originalTransactionId:
-            originalSnapshot.id,
-
-          category:
-            originalData.category ??
-            "",
-
-          categoryId:
-            originalData.categoryId ??
-            "",
-
-          categoryPath:
-            originalData.categoryPath ??
-            "",
-
-          categoryPathIds:
-            Array.isArray(
-              originalData.categoryPathIds,
-            )
-              ? originalData.categoryPathIds
-              : [],
-
-          categoryType: "expense",
-
-          amountMinor:
-            refundAmountMinor,
-
-          subtotalMinor:
-            refundAmountMinor,
-
-          transactionMode:
-            "singleLine",
-
-          lines: [],
-
-          lineDiscountTotalMinor: 0,
-
-          transactionDiscountMinor: 0,
-
-          couponCode: "",
-
-          paymentMethod:
-            refund.paymentMethod ??
-            originalData.paymentMethod ??
-            "",
-
-          transactionDate:
-            refund.transactionDate ??
-            "",
-
-          merchantId:
-            originalData.merchantId ??
-            "",
-
-          merchantName:
-            originalData.merchantName ??
-            "",
-
-          branchId:
-            originalData.branchId ??
-            "",
-
-          branchName:
-            originalData.branchName ??
-            "",
-
-          refundedMinor: 0,
-
-          refundStatus: "none",
-
-          refundReason:
-            refund.reason?.trim() ??
-            "",
-
-          createdAtUtc:
-            serverTimestamp(),
-
-          updatedAtUtc:
-            serverTimestamp(),
-        },
-      );
+      updatedAtUtc: serverTimestamp(),
     },
   );
 
-  const refundSnapshot =
-    await getDoc(
-      refundTransactionReference,
-    );
+  const transactionSnapshot = await getDoc(transactionReference);
 
-  return mapTransactionDocument(
-    refundSnapshot,
-  );
+  return mapTransactionDocument(transactionSnapshot);
 }
 
-// 3.GÜN - Kullanıcının gelir ve gider kayıtları Firestore'dan getirildi.
-export async function getTransactions(
-  userId,
-) {
-  const transactionsQuery =
-    query(
-      collection(
-        db,
-        "users",
-        userId,
-        "transactions",
-      ),
-      orderBy(
-        "createdAtUtc",
-        "desc",
-      ),
+// =====================================================
+// İade edilecek satırları hazırlar.
+// =====================================================
+
+function prepareRefundLines(originalLines, requestedRefundLines) {
+  if (
+    !Array.isArray(requestedRefundLines) ||
+    requestedRefundLines.length === 0
+  ) {
+    return [];
+  }
+
+  return requestedRefundLines.map((requestedLine) => {
+    const originalLine = originalLines.find(
+      (line) => line.id === requestedLine.lineId,
     );
 
-  const transactionsSnapshot =
-    await getDocs(
-      transactionsQuery,
-    );
+    if (!originalLine) {
+      throw new Error("TRANSACTION_REFUND_LINE_INVALID");
+    }
 
-  return transactionsSnapshot.docs.map(
-    mapTransactionDocument,
+    const refundAmountMinor = convertAmountToMinor(requestedLine.amount);
+
+    const currentLineRefundedMinor = Number(originalLine.refundedMinor ?? 0);
+
+    const remainingLineMinor =
+      Number(originalLine.netAmountMinor ?? 0) - currentLineRefundedMinor;
+
+    if (refundAmountMinor > remainingLineMinor) {
+      throw new Error("TRANSACTION_REFUND_EXCEEDS_REMAINING");
+    }
+
+    return {
+      lineId: originalLine.id,
+
+      productId: originalLine.productId ?? "",
+
+      productName: originalLine.productName ?? "",
+
+      categoryId: originalLine.categoryId ?? "",
+
+      category: originalLine.category ?? "",
+
+      amountMinor: refundAmountMinor,
+    };
+  });
+}
+
+// =====================================================
+// Tam veya kısmi iade oluşturur.
+// Orijinal gider ile iade kaydı aynı transaction içinde
+// güncellenir.
+// =====================================================
+
+export async function createRefundTransaction(userId, refund) {
+  if (!refund.originalTransactionId) {
+    throw new Error("REFUND_ORIGINAL_REQUIRED");
+  }
+
+  const originalTransactionReference = doc(
+    db,
+    "users",
+    userId,
+    "transactions",
+    refund.originalTransactionId,
   );
+
+  const refundTransactionReference = doc(
+    collection(db, "users", userId, "transactions"),
+  );
+
+  await runTransaction(db, async (firestoreTransaction) => {
+    const originalSnapshot = await firestoreTransaction.get(
+      originalTransactionReference,
+    );
+
+    if (!originalSnapshot.exists()) {
+      throw new Error("REFUND_ORIGINAL_NOT_FOUND");
+    }
+
+    const originalData = originalSnapshot.data();
+
+    if (originalData.transactionType !== "Gider") {
+      throw new Error("REFUND_ONLY_EXPENSE");
+    }
+
+    if (originalData.isDeleted) {
+      throw new Error("REFUND_ORIGINAL_NOT_FOUND");
+    }
+
+    const originalLines = Array.isArray(originalData.lines)
+      ? originalData.lines
+      : [];
+
+    const preparedRefundLines = prepareRefundLines(
+      originalLines,
+      refund.refundedLines,
+    );
+
+    const refundAmountMinor =
+      preparedRefundLines.length > 0
+        ? preparedRefundLines.reduce(
+            (total, line) => total + line.amountMinor,
+            0,
+          )
+        : convertAmountToMinor(refund.amount);
+
+    const originalAmountMinor = Number(originalData.amountMinor ?? 0);
+
+    const currentRefundedMinor = Number(originalData.refundedMinor ?? 0);
+
+    const remainingRefundableMinor = originalAmountMinor - currentRefundedMinor;
+
+    if (
+      refundAmountMinor <= 0 ||
+      refundAmountMinor > remainingRefundableMinor
+    ) {
+      throw new Error("REFUND_AMOUNT_EXCEEDED");
+    }
+
+    const newRefundedMinor = currentRefundedMinor + refundAmountMinor;
+
+    const newRefundStatus = calculateRefundStatus(
+      originalAmountMinor,
+      newRefundedMinor,
+    );
+
+    let updatedOriginalLines = originalLines;
+
+    if (preparedRefundLines.length > 0) {
+      updatedOriginalLines = originalLines.map((originalLine) => {
+        const relatedRefundLine = preparedRefundLines.find(
+          (refundLine) => refundLine.lineId === originalLine.id,
+        );
+
+        if (!relatedRefundLine) {
+          return originalLine;
+        }
+
+        const newLineRefundedMinor =
+          Number(originalLine.refundedMinor ?? 0) +
+          relatedRefundLine.amountMinor;
+
+        return {
+          ...originalLine,
+
+          refundedMinor: newLineRefundedMinor,
+
+          refundStatus: calculateRefundStatus(
+            Number(originalLine.netAmountMinor ?? 0),
+            newLineRefundedMinor,
+          ),
+        };
+      });
+    }
+
+    firestoreTransaction.update(originalTransactionReference, {
+      refundedMinor: newRefundedMinor,
+
+      refundStatus: newRefundStatus,
+
+      lines: updatedOriginalLines,
+
+      updatedBy: userId,
+
+      updatedAtUtc: serverTimestamp(),
+
+      version: Number(originalData.version ?? 1) + 1,
+    });
+
+    firestoreTransaction.set(refundTransactionReference, {
+      ...createDefaultAuditFields(userId),
+
+      transactionType: "İade",
+
+      originalTransactionId: originalSnapshot.id,
+
+      category: originalData.category ?? "",
+
+      categoryId: originalData.categoryId ?? "",
+
+      categoryPath: originalData.categoryPath ?? "",
+
+      categoryPathIds: Array.isArray(originalData.categoryPathIds)
+        ? originalData.categoryPathIds
+        : [],
+
+      categoryType: "expense",
+
+      amountMinor: refundAmountMinor,
+
+      subtotalMinor: refundAmountMinor,
+
+      transactionMode:
+        preparedRefundLines.length > 1 ? "multiLine" : "singleLine",
+
+      lines: [],
+
+      lineDiscountTotalMinor: 0,
+
+      transactionDiscountMinor: 0,
+
+      couponCode: "",
+
+      description: "",
+
+      paymentMethod: refund.paymentMethod ?? originalData.paymentMethod ?? "",
+
+      transactionDate: refund.transactionDate ?? "",
+
+      merchantId: originalData.merchantId ?? "",
+
+      merchantName: originalData.merchantName ?? "",
+
+      branchId: originalData.branchId ?? "",
+
+      branchName: originalData.branchName ?? "",
+
+      refundedMinor: 0,
+
+      refundStatus: "none",
+
+      refundReason: refund.reason?.trim() ?? "",
+
+      refundedLines: preparedRefundLines,
+
+      createdAtUtc: serverTimestamp(),
+
+      updatedAtUtc: serverTimestamp(),
+    });
+  });
+
+  const refundSnapshot = await getDoc(refundTransactionReference);
+
+  return mapTransactionDocument(refundSnapshot);
+}
+
+// =====================================================
+// Finansal kayıtları kalıcı olarak silmek yerine
+// soft-delete yöntemiyle arşivler.
+// =====================================================
+
+export async function archiveTransaction(userId, transactionId) {
+  const transactionReference = doc(
+    db,
+    "users",
+    userId,
+    "transactions",
+    transactionId,
+  );
+
+  const transactionSnapshot = await getDoc(transactionReference);
+
+  if (!transactionSnapshot.exists()) {
+    throw new Error("TRANSACTION_NOT_FOUND");
+  }
+
+  const transactionData = transactionSnapshot.data();
+
+  await updateDoc(transactionReference, {
+    isDeleted: true,
+
+    updatedBy: userId,
+
+    updatedAtUtc: serverTimestamp(),
+
+    version: Number(transactionData.version ?? 1) + 1,
+  });
+
+  return transactionId;
+}
+
+// =====================================================
+// Kullanıcının aktif finansal kayıtlarını getirir.
+// =====================================================
+
+export async function getTransactions(userId) {
+  const transactionsQuery = query(
+    collection(db, "users", userId, "transactions"),
+    orderBy("createdAtUtc", "desc"),
+  );
+
+  const transactionsSnapshot = await getDocs(transactionsQuery);
+
+  return transactionsSnapshot.docs
+    .map(mapTransactionDocument)
+    .filter((transaction) => !transaction.isDeleted);
 }

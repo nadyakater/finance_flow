@@ -27,6 +27,10 @@ import { selectCurrentUser } from "../../../auth/presentation/authSelectors";
 // - Kalıcı katalog verileri Redux selectorlarından alınır.
 // - Firebase'e doğrudan erişilmez.
 // - Kayıt işlemleri application katmanındaki thunklarla yapılır.
+//
+// 8.GÜN
+// Ürünlere normal ürün ve yakıt ürünü seçenekleri eklendi.
+// Yakıt ürünü seçildiğinde yakıt türü bilgisi alınır.
 // =====================================================
 
 function CatalogSection() {
@@ -50,6 +54,10 @@ function CatalogSection() {
   const [productName, setProductName] = useState("");
   const [productBrandId, setProductBrandId] = useState("");
   const [productAliases, setProductAliases] = useState("");
+
+  // 8.GÜN - Ürün türü ve yakıt türü bilgileri.
+  const [productType, setProductType] = useState("standard");
+  const [fuelType, setFuelType] = useState("gasoline");
 
   const [catalogFormError, setCatalogFormError] = useState("");
 
@@ -141,19 +149,32 @@ function CatalogSection() {
       return;
     }
 
+    if (productType === "fuel" && !fuelType) {
+      setCatalogFormError("Yakıt türünü seçiniz.");
+      return;
+    }
+
     const selectedBrand =
       brands.find((brand) => brand.id === productBrandId) ?? null;
 
     const result = await dispatch(
       addProduct({
         userId: currentUser.id,
+
         name: productName,
+
         aliases: productAliases
           .split(",")
           .map((alias) => alias.trim())
           .filter(Boolean),
+
         brandId: selectedBrand?.id ?? "",
+
         brandName: selectedBrand?.name ?? "",
+
+        productType,
+
+        fuelType: productType === "fuel" ? fuelType : "",
       }),
     );
 
@@ -161,6 +182,19 @@ function CatalogSection() {
       setProductName("");
       setProductAliases("");
       setProductBrandId("");
+      setProductType("standard");
+      setFuelType("gasoline");
+    }
+  };
+
+  const handleProductTypeChange = (event) => {
+    const selectedProductType = event.target.value;
+
+    setProductType(selectedProductType);
+    setCatalogFormError("");
+
+    if (selectedProductType !== "fuel") {
+      setFuelType("gasoline");
     }
   };
 
@@ -186,6 +220,7 @@ function CatalogSection() {
             placeholder="Firma adı"
             value={merchantName}
             onChange={(event) => setMerchantName(event.target.value)}
+            disabled={isCatalogMutating}
           />
 
           <button
@@ -193,7 +228,7 @@ function CatalogSection() {
             type="submit"
             disabled={isCatalogMutating}
           >
-            Firma Ekle
+            {isCatalogMutating ? "Ekleniyor..." : "Firma Ekle"}
           </button>
         </form>
 
@@ -210,6 +245,7 @@ function CatalogSection() {
             className="form-input"
             value={selectedMerchantId}
             onChange={(event) => setSelectedMerchantId(event.target.value)}
+            disabled={isCatalogMutating}
           >
             <option value="">Firma seçiniz</option>
 
@@ -231,6 +267,7 @@ function CatalogSection() {
             placeholder="Şube adı"
             value={branchName}
             onChange={(event) => setBranchName(event.target.value)}
+            disabled={isCatalogMutating}
           />
 
           <label className="form-label" htmlFor="branchAddress">
@@ -244,6 +281,7 @@ function CatalogSection() {
             placeholder="Adres (isteğe bağlı)"
             value={branchAddress}
             onChange={(event) => setBranchAddress(event.target.value)}
+            disabled={isCatalogMutating}
           />
 
           <button
@@ -251,7 +289,7 @@ function CatalogSection() {
             type="submit"
             disabled={isCatalogMutating || !selectedMerchantId}
           >
-            Şube Ekle
+            {isCatalogMutating ? "Ekleniyor..." : "Şube Ekle"}
           </button>
         </form>
 
@@ -270,6 +308,7 @@ function CatalogSection() {
             placeholder="Marka adı"
             value={brandName}
             onChange={(event) => setBrandName(event.target.value)}
+            disabled={isCatalogMutating}
           />
 
           <button
@@ -277,7 +316,7 @@ function CatalogSection() {
             type="submit"
             disabled={isCatalogMutating}
           >
-            Marka Ekle
+            {isCatalogMutating ? "Ekleniyor..." : "Marka Ekle"}
           </button>
         </form>
 
@@ -296,6 +335,7 @@ function CatalogSection() {
             placeholder="Ürün adı"
             value={productName}
             onChange={(event) => setProductName(event.target.value)}
+            disabled={isCatalogMutating}
           />
 
           <label className="form-label" htmlFor="productBrand">
@@ -307,6 +347,7 @@ function CatalogSection() {
             className="form-input"
             value={productBrandId}
             onChange={(event) => setProductBrandId(event.target.value)}
+            disabled={isCatalogMutating}
           >
             <option value="">Markasız ürün</option>
 
@@ -317,6 +358,58 @@ function CatalogSection() {
             ))}
           </select>
 
+          <label className="form-label" htmlFor="productType">
+            Ürün Türü
+          </label>
+
+          <select
+            id="productType"
+            className="form-input"
+            value={productType}
+            onChange={handleProductTypeChange}
+            disabled={isCatalogMutating}
+          >
+            <option value="standard">
+              Normal Ürün
+            </option>
+
+            <option value="fuel">
+              Yakıt
+            </option>
+          </select>
+
+          {productType === "fuel" && (
+            <>
+              <label className="form-label" htmlFor="fuelType">
+                Yakıt Türü
+              </label>
+
+              <select
+                id="fuelType"
+                className="form-input"
+                value={fuelType}
+                onChange={(event) => setFuelType(event.target.value)}
+                disabled={isCatalogMutating}
+              >
+                <option value="gasoline">
+                  Benzin
+                </option>
+
+                <option value="diesel">
+                  Motorin
+                </option>
+
+                <option value="lpg">
+                  LPG
+                </option>
+
+                <option value="other">
+                  Diğer
+                </option>
+              </select>
+            </>
+          )}
+
           <label className="form-label" htmlFor="productAliases">
             Alternatif Ürün Adları
           </label>
@@ -325,9 +418,14 @@ function CatalogSection() {
             id="productAliases"
             className="form-input"
             type="text"
-            placeholder="Örnek: soda, maden suyu"
+            placeholder={
+              productType === "fuel"
+                ? "Örnek: kurşunsuz benzin, benzin 95"
+                : "Örnek: soda, maden suyu"
+            }
             value={productAliases}
             onChange={(event) => setProductAliases(event.target.value)}
+            disabled={isCatalogMutating}
           />
 
           <button
@@ -335,7 +433,7 @@ function CatalogSection() {
             type="submit"
             disabled={isCatalogMutating}
           >
-            Ürün Ekle
+            {isCatalogMutating ? "Ekleniyor..." : "Ürün Ekle"}
           </button>
         </form>
       </div>
@@ -347,11 +445,15 @@ function CatalogSection() {
       )}
 
       {catalogFormError && (
-        <p className="form-error">{catalogFormError}</p>
+        <p className="form-error" role="alert">
+          {catalogFormError}
+        </p>
       )}
 
       {catalogError && (
-        <p className="form-error">{catalogError}</p>
+        <p className="form-error" role="alert">
+          {catalogError}
+        </p>
       )}
     </section>
   );

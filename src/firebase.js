@@ -7,7 +7,6 @@ const firebaseConfig = {
   apiKey: "AIzaSyBzvKeoGpXdiN0hF-PsHXbyUMVaFvFHhcY",
   authDomain: "finance-flow-dc017.firebaseapp.com",
   projectId: "finance-flow-dc017",
-  storageBucket: "finance-flow-dc017.firebasestorage.app",
   messagingSenderId: "949092259370",
   appId: "1:949092259370:web:184ac1804c36ef70fa9553",
 };

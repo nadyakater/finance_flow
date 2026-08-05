@@ -1,7 +1,10 @@
-// =====================================================
-// 3.GÜN - 6.GÜN
-// Gelir, gider ve iade kayıtlarının tablo görünümü.
-// =====================================================
+import { useDispatch } from "react-redux";
+
+import { removeTransaction } from "../../application/transactionThunks";
+
+import { selectCurrentUser } from "../../../auth/presentation/authSelectors";
+
+import { useSelector } from "react-redux";
 
 function TransactionTable({
   transactionLoadStatus,
@@ -12,84 +15,184 @@ function TransactionTable({
   formatAmount,
   formatTransactionDate,
 }) {
+  const dispatch = useDispatch();
+
+  const currentUser = useSelector(
+    selectCurrentUser,
+  );
+
+  const handleArchive = async (
+    transactionId,
+  ) => {
+    if (
+      !window.confirm(
+        "Bu kayıt arşivlensin mi?",
+      )
+    ) {
+      return;
+    }
+
+    await dispatch(
+      removeTransaction({
+        userId: currentUser.id,
+        transactionId,
+      }),
+    );
+  };
+
   return (
     <>
-      <h2 className="section-title table-title">Gelir ve Gider Tablosu</h2>
+      <h2 className="section-title table-title">
+        Gelir, Gider ve İade
+        Kayıtları
+      </h2>
 
       <div className="table-wrapper">
         <table className="transaction-table">
           <thead>
             <tr>
-              <th>İşlem Türü</th>
-              <th>Kategori</th>
-              <th>Miktar</th>
-              <th>Firma / Şube</th>
-              <th>İade Durumu</th>
-              <th>İşlem Tarihi</th>
+              <th>İşlem</th>
+
+              <th>
+                Kategori / Açıklama
+              </th>
+
+              <th>Tutar</th>
+
+              <th>
+                Firma / Şube
+              </th>
+
+              <th>
+                Satırlar /
+                İndirim
+              </th>
+
+              <th>
+                İade Durumu
+              </th>
+
+              <th>Tarih</th>
+
+              <th>İşlem</th>
             </tr>
           </thead>
 
           <tbody>
-            {transactionLoadStatus === "loading" &&
-            transactions.length === 0 ? (
+            {transactionLoadStatus ===
+            "loading" ? (
               <tr>
-                <td className="empty-table-cell" colSpan="6">
-                  Kayıtlar yükleniyor...
+                <td
+                  className="empty-table-cell"
+                  colSpan="8"
+                >
+                  Yükleniyor...
                 </td>
               </tr>
-            ) : filteredTransactions.length === 0 ? (
+            ) : filteredTransactions.length ===
+              0 ? (
               <tr>
-                <td className="empty-table-cell" colSpan="6">
-                  {selectedFilterCategoryIds.length > 0
-                    ? "Seçilen filtrelere uygun kayıt bulunmuyor."
+                <td
+                  className="empty-table-cell"
+                  colSpan="8"
+                >
+                  {selectedFilterCategoryIds.length >
+                  0
+                    ? "Seçilen kategoriye ait kayıt bulunamadı."
                     : "Henüz kayıt bulunmuyor."}
                 </td>
               </tr>
             ) : (
-              filteredTransactions.map((transaction) => (
-                <tr key={transaction.id}>
-                  <td>{transaction.transactionType}</td>
+              filteredTransactions.map(
+                (
+                  transaction,
+                ) => (
+                  <tr
+                    key={
+                      transaction.id
+                    }
+                  >
+                    <td>
+                      {
+                        transaction.transactionType
+                      }
+                    </td>
 
-                  <td>
-                    {getTransactionCategoryLabel(transaction)}
+                    <td>
+                      {getTransactionCategoryLabel(
+                        transaction,
+                      )}
+                    </td>
 
-                    {transaction.paymentMethod && (
-                      <div>{transaction.paymentMethod}</div>
-                    )}
-                  </td>
+                    <td>
+                      {formatAmount(
+                        transaction.amountMinor,
+                      )}{" "}
+                      ₺
+                    </td>
 
-                  <td>{formatAmount(transaction.amountMinor)} ₺</td>
+                    <td>
+                      {transaction.merchantName ||
+                        "-"}
 
-                  <td>
-                    {transaction.merchantName || "-"}
+                      {transaction.branchName && (
+                        <div className="table-secondary-text">
+                          {
+                            transaction.branchName
+                          }
+                        </div>
+                      )}
+                    </td>
 
-                    {transaction.branchName && (
-                      <div>{transaction.branchName}</div>
-                    )}
-                  </td>
+                    <td>
+                      {transaction.lines
+                        ?.length ??
+                        0}{" "}
+                      satır
 
-                  <td>
-                    {transaction.transactionType === "Gider"
-                      ? transaction.refundStatus === "full"
+                      <div className="table-secondary-text">
+                        İndirim:{" "}
+                        {formatAmount(
+                          transaction.transactionDiscountMinor +
+                            transaction.lineDiscountTotalMinor,
+                        )}{" "}
+                        ₺
+                      </div>
+                    </td>
+
+                    <td>
+                      {transaction.refundStatus ===
+                      "full"
                         ? "Tam İade"
-                        : transaction.refundStatus === "partial"
-                          ? `Kısmi İade: ${formatAmount(
-                              transaction.refundedMinor,
-                            )} ₺`
-                          : "İade Yok"
-                      : transaction.transactionType === "İade"
-                        ? "İade Kaydı"
-                        : "-"}
-                  </td>
+                        : transaction.refundStatus ===
+                          "partial"
+                        ? "Kısmi İade"
+                        : "İade Yok"}
+                    </td>
 
-                  <td>
-                    {formatTransactionDate(
-                      transaction.transactionDate,
-                      transaction.createdAtUtc,
-                    )}
-                  </td>
-                </tr>
-              ))
+                    <td>
+                      {formatTransactionDate(
+                        transaction.transactionDate,
+                        transaction.createdAtUtc,
+                      )}
+                    </td>
+
+                    <td>
+                      <button
+                        className="danger-button"
+                        type="button"
+                        onClick={() =>
+                          handleArchive(
+                            transaction.id,
+                          )
+                        }
+                      >
+                        Arşivle
+                      </button>
+                    </td>
+                  </tr>
+                ),
+              )
             )}
           </tbody>
         </table>

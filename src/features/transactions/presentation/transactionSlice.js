@@ -4,148 +4,281 @@ import {
   addRefundTransaction,
   addTransaction,
   loadTransactions,
+  removeTransaction,
 } from "../application/transactionThunks";
 
 const initialState = {
   items: [],
+
   loadStatus: "idle",
+
   saveStatus: "idle",
+
+  refundStatus: "idle",
+
+  deleteStatus: "idle",
+
   error: null,
+
+  successMessage: "",
 };
 
 const transactionSlice = createSlice({
   name: "transactions",
+
   initialState,
-  reducers: {},
+
+  reducers: {
+    clearTransactionError(state) {
+      state.error = null;
+    },
+
+    clearTransactionMessage(state) {
+      state.successMessage = "";
+    },
+
+    resetTransactions(state) {
+      state.items = [];
+
+      state.loadStatus = "idle";
+
+      state.saveStatus = "idle";
+
+      state.refundStatus = "idle";
+
+      state.deleteStatus = "idle";
+
+      state.error = null;
+
+      state.successMessage = "";
+    },
+  },
+
   extraReducers: (builder) => {
     builder
+
+      // =====================================================
+      // Kayıtları getirme
+      // =====================================================
       .addCase(
         loadTransactions.pending,
+
         (state) => {
           state.loadStatus = "loading";
+
           state.error = null;
         },
       )
+
       .addCase(
         loadTransactions.fulfilled,
+
         (state, action) => {
           state.items = action.payload;
-          state.loadStatus =
-            "succeeded";
+
+          state.loadStatus = "succeeded";
+
           state.error = null;
         },
       )
+
       .addCase(
         loadTransactions.rejected,
+
         (state, action) => {
           state.loadStatus = "failed";
 
-          state.error =
-            action.payload ??
-            "Kayıtlar getirilemedi.";
+          state.error = action.payload ?? "Kayıtlar getirilemedi.";
         },
       )
+
+      // =====================================================
+      // Gelir veya gider ekleme
+      // =====================================================
       .addCase(
         addTransaction.pending,
+
         (state) => {
           state.saveStatus = "loading";
+
           state.error = null;
+
+          state.successMessage = "";
         },
       )
+
       .addCase(
         addTransaction.fulfilled,
-        (state, action) => {
-          state.items.unshift(
-            action.payload,
-          );
 
-          state.saveStatus =
-            "succeeded";
+        (state, action) => {
+          state.items.unshift(action.payload);
+
+          state.saveStatus = "succeeded";
 
           state.error = null;
+
+          state.successMessage =
+            action.payload.transactionType === "Gelir"
+              ? "Gelir kaydı başarıyla eklendi."
+              : "Gider kaydı başarıyla eklendi.";
         },
       )
+
       .addCase(
         addTransaction.rejected,
+
         (state, action) => {
           state.saveStatus = "failed";
 
-          state.error =
-            action.payload ??
-            "Kayıt eklenemedi.";
+          state.error = action.payload ?? "Kayıt eklenemedi.";
         },
       )
-      // 6.GÜN - Tam veya kısmi iade kaydının Redux listesine eklenmesi sağlandı.
+
+      // =====================================================
+      // İade oluşturma
+      // =====================================================
       .addCase(
         addRefundTransaction.pending,
+
         (state) => {
-          state.saveStatus = "loading";
+          state.refundStatus = "loading";
+
           state.error = null;
+
+          state.successMessage = "";
         },
       )
+
       .addCase(
         addRefundTransaction.fulfilled,
-        (state, action) => {
-          const refundTransaction =
-            action.payload;
 
-          state.items.unshift(
-            refundTransaction,
+        (state, action) => {
+          const refundTransaction = action.payload;
+
+          state.items.unshift(refundTransaction);
+
+          const originalTransaction = state.items.find(
+            (transaction) =>
+              transaction.id === refundTransaction.originalTransactionId,
           );
 
-          const originalTransaction =
-            state.items.find(
-              (transaction) =>
-                transaction.id ===
-                refundTransaction.originalTransactionId,
+          if (originalTransaction) {
+            const currentRefundedMinor = Number(
+              originalTransaction.refundedMinor ?? 0,
             );
 
-          if (originalTransaction) {
-            const currentRefundedMinor =
-              Number(
-                originalTransaction.refundedMinor ??
-                  0,
-              );
-
             const newRefundedMinor =
-              currentRefundedMinor +
-              Number(
-                refundTransaction.amountMinor ??
-                  0,
-              );
+              currentRefundedMinor + Number(refundTransaction.amountMinor ?? 0);
 
-            originalTransaction.refundedMinor =
-              newRefundedMinor;
+            originalTransaction.refundedMinor = newRefundedMinor;
 
             originalTransaction.refundStatus =
-              newRefundedMinor >=
-              Number(
-                originalTransaction.amountMinor ??
-                  0,
-              )
+              newRefundedMinor >= Number(originalTransaction.amountMinor ?? 0)
                 ? "full"
                 : "partial";
+
+            const refundedLines = Array.isArray(refundTransaction.refundedLines)
+              ? refundTransaction.refundedLines
+              : [];
+
+            if (refundedLines.length > 0) {
+              originalTransaction.lines = originalTransaction.lines.map(
+                (originalLine) => {
+                  const relatedRefundLine = refundedLines.find(
+                    (refundLine) => refundLine.lineId === originalLine.id,
+                  );
+
+                  if (!relatedRefundLine) {
+                    return originalLine;
+                  }
+
+                  const newLineRefundedMinor =
+                    Number(originalLine.refundedMinor ?? 0) +
+                    Number(relatedRefundLine.amountMinor ?? 0);
+
+                  return {
+                    ...originalLine,
+
+                    refundedMinor: newLineRefundedMinor,
+
+                    refundStatus:
+                      newLineRefundedMinor >=
+                      Number(originalLine.netAmountMinor ?? 0)
+                        ? "full"
+                        : "partial",
+                  };
+                },
+              );
+            }
           }
 
-          state.saveStatus =
-            "succeeded";
+          state.refundStatus = "succeeded";
 
           state.error = null;
+
+          state.successMessage = "İade kaydı başarıyla oluşturuldu.";
         },
       )
+
       .addCase(
         addRefundTransaction.rejected,
-        (state, action) => {
-          state.saveStatus = "failed";
 
-          state.error =
-            action.payload ??
-            "İade kaydı oluşturulamadı.";
+        (state, action) => {
+          state.refundStatus = "failed";
+
+          state.error = action.payload ?? "İade kaydı oluşturulamadı.";
+        },
+      )
+
+      // =====================================================
+      // İşlem arşivleme
+      // =====================================================
+      .addCase(
+        removeTransaction.pending,
+
+        (state) => {
+          state.deleteStatus = "loading";
+
+          state.error = null;
+
+          state.successMessage = "";
+        },
+      )
+
+      .addCase(
+        removeTransaction.fulfilled,
+
+        (state, action) => {
+          state.items = state.items.filter(
+            (transaction) => transaction.id !== action.payload,
+          );
+
+          state.deleteStatus = "succeeded";
+
+          state.error = null;
+
+          state.successMessage = "Kayıt arşivlendi.";
+        },
+      )
+
+      .addCase(
+        removeTransaction.rejected,
+
+        (state, action) => {
+          state.deleteStatus = "failed";
+
+          state.error = action.payload ?? "Kayıt arşivlenemedi.";
         },
       );
   },
 });
 
-// 3.GÜN - Gelir ve gider kayıtlarının Redux state yapısı oluşturuldu.
-// 6.GÜN - İade kayıtları ve orijinal giderin iade durumu Redux state içerisinde yönetildi.
+export const {
+  clearTransactionError,
+
+  clearTransactionMessage,
+
+  resetTransactions,
+} = transactionSlice.actions;
+
 export default transactionSlice.reducer;

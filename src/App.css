@@ -36,8 +36,7 @@ body {
   border: 1px solid #f8bbd0;
   border-radius: 16px;
   background-color: #fff5f8;
-  box-shadow: 0 8px 24px
-    rgba(233, 30, 99, 0.12);
+  box-shadow: 0 8px 24px rgba(233, 30, 99, 0.12);
 }
 
 .page-title,
@@ -73,6 +72,13 @@ body {
 
 .form-input:focus {
   border-color: #d81b60;
+}
+
+.form-input:disabled {
+  cursor: not-allowed;
+  background-color: #f7f7f7;
+  color: #888888;
+  opacity: 0.8;
 }
 
 .login-button {
@@ -159,10 +165,7 @@ body {
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(
-    3,
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -212,6 +215,7 @@ body {
   padding: 12px;
   border: 1px solid #f8bbd0;
   text-align: left;
+  vertical-align: top;
 }
 
 .transaction-table th {
@@ -250,10 +254,7 @@ body {
 
 .category-form-grid {
   display: grid;
-  grid-template-columns: repeat(
-    3,
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -428,10 +429,7 @@ body {
 
 .archive-list {
   display: grid;
-  grid-template-columns: repeat(
-    2,
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -496,10 +494,7 @@ body {
 
 .category-filter-list {
   display: grid;
-  grid-template-columns: repeat(
-    3,
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   max-height: 220px;
   margin-top: 15px;
@@ -519,6 +514,290 @@ body {
   cursor: pointer;
 }
 
+/* 7.GÜN - Çok satırlı gider, fiş/fatura ve iade ekranları için tasarımlar oluşturuldu. */
+
+.expense-line-panel {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #f2c8d8;
+  border-radius: 14px;
+  background-color: #fffafb;
+}
+
+.expense-line-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.expense-line-header .selected-category-text {
+  margin: 0;
+}
+
+.expense-line-note-field {
+  grid-column: 1 / -1;
+}
+
+.expense-total-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.expense-total-panel p {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #f8bbd0;
+  border-radius: 10px;
+  background-color: #ffffff;
+}
+
+.receipt-upload-panel {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px dashed #d98aaa;
+  border-radius: 14px;
+  background-color: #fffafb;
+}
+
+.receipt-upload-panel input[type="file"] {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.refund-amount-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.refund-amount-row .form-input {
+  flex: 1;
+}
+
+.refund-amount-row .secondary-button {
+  white-space: nowrap;
+}
+
+.success-message,
+.error-message-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.success-message {
+  color: #176239;
+  border: 1px solid #9ed5b5;
+  background-color: #edfff4;
+}
+
+.error-message-panel {
+  color: #9a2634;
+  border: 1px solid #efb4bd;
+  background-color: #fff1f3;
+}
+
+.message-close-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.receipt-link {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: #a62b5d;
+  background-color: #fdebf2;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.receipt-link:hover {
+  text-decoration: underline;
+}
+
+.table-secondary-text {
+  margin-top: 5px;
+  color: #777777;
+  font-size: 12px;
+}
+
+.transaction-table .danger-button,
+.danger-button {
+  min-width: auto;
+  padding: 8px 11px;
+  border: none;
+  border-radius: 8px;
+  background-color: #dc3545;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.transaction-table .danger-button:hover,
+.danger-button:hover {
+  background-color: #bb2d3b;
+}
+
+.transaction-table .danger-button:disabled,
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 8.GÜN - Yakıt ürünleri, litre hesabı ve istasyon analizi için tasarımlar oluşturuldu. */
+
+.fuel-product-badge {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 5px 9px;
+  border: 1px solid #f48fb1;
+  border-radius: 999px;
+  background-color: #fce4ec;
+  color: #880e4f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fuel-calculated-total {
+  min-height: 104px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #f8bbd0;
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.fuel-calculated-total .form-label {
+  margin: 0;
+}
+
+.fuel-calculated-total strong {
+  color: #d81b60;
+  font-size: 20px;
+}
+
+.fuel-calculated-total small {
+  color: #777777;
+  font-size: 12px;
+}
+
+.input-warning {
+  border-color: #dc3545;
+  background-color: #fff7f7;
+}
+
+.input-warning:focus {
+  border-color: #b71c1c;
+}
+
+.fuel-total-warning,
+.fuel-total-success {
+  margin: 7px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.fuel-total-warning {
+  border: 1px solid #efb4bd;
+  background-color: #fff1f3;
+  color: #9a2634;
+}
+
+.fuel-total-success {
+  border: 1px solid #9ed5b5;
+  background-color: #edfff4;
+  color: #176239;
+}
+
+.fuel-analysis-section {
+  overflow: hidden;
+}
+
+.fuel-analysis-filter {
+  max-width: 320px;
+  margin-bottom: 18px;
+}
+
+.fuel-analysis-filter .form-input {
+  margin-bottom: 0;
+}
+
+.fuel-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fuel-analysis-card {
+  margin-top: 0;
+  background: linear-gradient(180deg, #fffafb 0%, #ffffff 100%);
+}
+
+.fuel-analysis-card p {
+  margin: 8px 0;
+  color: #555555;
+  line-height: 1.4;
+}
+
+.fuel-analysis-card strong {
+  color: #880e4f;
+}
+
+.fuel-history-title {
+  margin-top: 25px;
+}
+
+.fuel-analysis-section .transaction-table {
+  min-width: 900px;
+}
+
+.fuel-analysis-section .transaction-table th {
+  white-space: nowrap;
+}
+
+/* Katalogdaki ürün türü alanının görünümünü düzenler. */
+
+.category-action-panel form {
+  width: 100%;
+}
+
+.category-action-panel .secondary-button {
+  margin-top: 14px;
+}
+
+.category-action-panel label + .form-input {
+  margin-top: 0;
+}
+
+/* Ekran boyutlarına göre responsive düzenlemeler. */
+
+@media (max-width: 1100px) {
+  .fuel-analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .category-form-grid,
   .category-filter-list,
@@ -527,6 +806,10 @@ body {
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-total-panel {
     grid-template-columns: 1fr;
   }
 }
@@ -548,7 +831,8 @@ body {
 
   .category-action-buttons,
   .filter-heading-row,
-  .archive-item {
+  .archive-item,
+  .expense-line-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -556,11 +840,41 @@ body {
   .restore-button {
     width: 100%;
   }
+
+  .refund-amount-row {
+    flex-direction: column;
+  }
+
+  .fuel-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fuel-analysis-filter {
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 600px) {
+  .page-container {
+    padding: 10px;
+  }
+
+  .transaction-card {
+    padding: 14px;
+  }
+
+  .transaction-form,
+  .category-management-section,
+  .category-filter-section {
+    padding: 14px;
+  }
+
   .category-tree-children {
     margin-left: 12px;
     padding-left: 9px;
+  }
+
+  .fuel-calculated-total strong {
+    font-size: 17px;
   }
 }
