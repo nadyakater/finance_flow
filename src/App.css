@@ -930,3 +930,59 @@ body {
     font-size: 17px;
   }
 }
+
+/* 10.GÜN - Ana sayfa ve Admin paneli için üst işlem butonları düzenlendi. */
+
+.dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.admin-button,
+.home-button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.admin-button {
+  background-color: #e91e63;
+}
+
+.admin-button:hover {
+  background-color: #c2185b;
+}
+
+.home-button {
+  background-color: #ad1457;
+}
+
+.home-button:hover {
+  background-color: #880e4f;
+}
+
+.admin-header {
+  margin-bottom: 25px;
+}
+
+@media (max-width: 700px) {
+  .dashboard-header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .admin-button,
+  .home-button,
+  .dashboard-header-actions .dashboard-logout-button {
+    width: 100%;
+  }
+}

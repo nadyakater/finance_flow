@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { useDispatch, useSelector } from "react-redux";
 
@@ -11,6 +11,7 @@ import {
   selectCurrentUser,
 } from "./features/auth/presentation/authSelectors";
 
+import Admin from "./pages/Admin";
 import Anasayfa from "./pages/Anasayfa";
 import Login from "./pages/Login";
 
@@ -18,9 +19,12 @@ function App() {
   const dispatch = useDispatch();
 
   const currentUser = useSelector(selectCurrentUser);
+
   const isInitialized = useSelector(
     selectAuthInitialized,
   );
+
+  const [currentPage, setCurrentPage] = useState("home");
 
   // 1.GÜN - Uygulama açıldığında Firebase oturum kontrolü başlatıldı.
   useEffect(() => {
@@ -35,6 +39,13 @@ function App() {
     };
   }, [dispatch]);
 
+  // 10.GÜN - Kullanıcı çıkış yaptığında ekranın ana sayfa durumuna dönmesi sağlandı.
+  useEffect(() => {
+    if (!currentUser) {
+      setCurrentPage("home");
+    }
+  }, [currentUser]);
+
   if (!isInitialized) {
     return (
       <div className="page-container">
@@ -45,9 +56,31 @@ function App() {
     );
   }
 
+  const renderAuthenticatedPage = () => {
+    if (currentPage === "admin") {
+      return (
+        <Admin
+          onNavigateHome={() =>
+            setCurrentPage("home")
+          }
+        />
+      );
+    }
+
+    return (
+      <Anasayfa
+        onNavigateAdmin={() =>
+          setCurrentPage("admin")
+        }
+      />
+    );
+  };
+
   return (
     <div className="App">
-      {currentUser ? <Anasayfa /> : <Login />}
+      {currentUser
+        ? renderAuthenticatedPage()
+        : <Login />}
     </div>
   );
 }
