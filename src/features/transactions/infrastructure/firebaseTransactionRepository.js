@@ -826,10 +826,7 @@ export async function archiveTransaction(userId, transactionId) {
   return transactionId;
 }
 
-// =====================================================
 // Kullanıcının aktif finansal kayıtlarını getirir.
-// =====================================================
-
 export async function getTransactions(userId) {
   const transactionsQuery = query(
     collection(db, "users", userId, "transactions"),

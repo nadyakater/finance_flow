@@ -15,6 +15,8 @@ import { selectActiveCategories } from "../features/categories/presentation/cate
 
 import { loadCatalog } from "../features/catalog/application/catalogThunks";
 
+import { loadCreditCards } from "../features/creditCards/application/creditCardThunks";
+
 import { loadTransactions } from "../features/transactions/application/transactionThunks";
 
 import {
@@ -36,6 +38,8 @@ import {
 import CategorySection from "../components/categories/CategorySection";
 
 import CatalogSection from "../features/catalog/presentation/components/CatalogSection";
+
+import CreditCardSection from "../features/creditCards/presentation/components/CreditCardSection";
 
 import TransactionForm from "../features/transactions/presentation/components/TransactionForm";
 
@@ -61,36 +65,27 @@ function formatDate(dateValue) {
 
 function formatTransactionDate(transactionDate, createdAtUtc) {
   if (transactionDate) {
-    return new Date(
-      `${transactionDate}T00:00:00`,
-    ).toLocaleDateString("tr-TR");
+    return new Date(`${transactionDate}T00:00:00`).toLocaleDateString("tr-TR");
   }
 
   return formatDate(createdAtUtc);
 }
 
 function formatAmount(amountMinor) {
-  return (
-    Number(amountMinor ?? 0) / 100
-  ).toLocaleString("tr-TR", {
+  return (Number(amountMinor ?? 0) / 100).toLocaleString("tr-TR", {
     minimumFractionDigits: 2,
+
     maximumFractionDigits: 2,
   });
 }
 
 function convertInputAmountToMinor(amount) {
-  if (
-    amount === "" ||
-    amount === null ||
-    amount === undefined
-  ) {
+  if (amount === "" || amount === null || amount === undefined) {
     return 0;
   }
 
   const normalizedAmount =
-    typeof amount === "string"
-      ? amount.replace(",", ".")
-      : amount;
+    typeof amount === "string" ? amount.replace(",", ".") : amount;
 
   const numericAmount = Number(normalizedAmount);
 
@@ -104,26 +99,16 @@ function convertInputAmountToMinor(amount) {
 function getTodayDateValue() {
   const currentDate = new Date();
 
-  const timezoneOffset =
-    currentDate.getTimezoneOffset() *
-    60 *
-    1000;
+  const timezoneOffset = currentDate.getTimezoneOffset() * 60 * 1000;
 
-  return new Date(
-    currentDate.getTime() - timezoneOffset,
-  )
+  return new Date(currentDate.getTime() - timezoneOffset)
     .toISOString()
     .slice(0, 10);
 }
 
-function getTransactionCategoryPathIds(
-  transaction,
-  categories,
-) {
+function getTransactionCategoryPathIds(transaction, categories) {
   if (
-    Array.isArray(
-      transaction.categoryPathIds,
-    ) &&
+    Array.isArray(transaction.categoryPathIds) &&
     transaction.categoryPathIds.length > 0
   ) {
     return transaction.categoryPathIds;
@@ -134,344 +119,207 @@ function getTransactionCategoryPathIds(
   }
 
   const expectedCategoryType =
-    transaction.transactionType === "Gelir"
-      ? "income"
-      : "expense";
+    transaction.transactionType === "Gelir" ? "income" : "expense";
 
   const matchedCategory = categories.find(
     (category) =>
       category.name === transaction.category &&
-      (category.categoryType ===
-        expectedCategoryType ||
+      (category.categoryType === expectedCategoryType ||
         category.categoryType === "both"),
   );
 
   return matchedCategory?.pathIds ?? [];
 }
 
-function getTransactionCategoryItems(
-  transaction,
-  categories,
-) {
-  if (
-    Array.isArray(transaction.lines) &&
-    transaction.lines.length > 0
-  ) {
+function getTransactionCategoryItems(transaction, categories) {
+  if (Array.isArray(transaction.lines) && transaction.lines.length > 0) {
     return transaction.lines.map((line) => {
-      const lineAmountMinor = Number.isInteger(
-        line.netAmountMinor,
-      )
+      const lineAmountMinor = Number.isInteger(line.netAmountMinor)
         ? line.netAmountMinor
-        : Number.isInteger(
-              line.grossAmountMinor,
-            )
+        : Number.isInteger(line.grossAmountMinor)
           ? line.grossAmountMinor -
-            Number(
-              line.lineDiscountMinor ?? 0,
-            ) -
-            Number(
-              line.allocatedTransactionDiscountMinor ??
-                0,
-            )
-          : convertInputAmountToMinor(
-              line.amount,
-            );
+            Number(line.lineDiscountMinor ?? 0) -
+            Number(line.allocatedTransactionDiscountMinor ?? 0)
+          : convertInputAmountToMinor(line.amount);
 
       return {
-        categoryId:
-          line.categoryId ?? "",
+        categoryId: line.categoryId ?? "",
 
-        categoryPathIds: Array.isArray(
-          line.categoryPathIds,
-        )
+        categoryPathIds: Array.isArray(line.categoryPathIds)
           ? line.categoryPathIds
           : line.categoryId
             ? [line.categoryId]
             : [],
 
-        amountMinor:
-          lineAmountMinor,
+        amountMinor: lineAmountMinor,
       };
     });
   }
 
   return [
     {
-      categoryId:
-        transaction.categoryId ?? "",
+      categoryId: transaction.categoryId ?? "",
 
-      categoryPathIds:
-        getTransactionCategoryPathIds(
-          transaction,
-          categories,
-        ),
+      categoryPathIds: getTransactionCategoryPathIds(transaction, categories),
 
-      amountMinor: Number(
-        transaction.amountMinor ?? 0,
-      ),
+      amountMinor: Number(transaction.amountMinor ?? 0),
     },
   ];
 }
 
-function getTransactionCategoryLabel(
-  transaction,
-) {
-  if (
-    Array.isArray(transaction.lines) &&
-    transaction.lines.length > 0
-  ) {
-    const categoryLabels =
-      transaction.lines
-        .map(
-          (line) =>
-            line.categoryPath ||
-            line.category,
-        )
-        .filter(Boolean);
+function getTransactionCategoryLabel(transaction) {
+  if (Array.isArray(transaction.lines) && transaction.lines.length > 0) {
+    const categoryLabels = transaction.lines
+      .map((line) => line.categoryPath || line.category)
+      .filter(Boolean);
 
-    const uniqueCategoryLabels = [
-      ...new Set(categoryLabels),
-    ];
+    const uniqueCategoryLabels = [...new Set(categoryLabels)];
 
     if (uniqueCategoryLabels.length > 0) {
-      return uniqueCategoryLabels.join(
-        " | ",
-      );
+      return uniqueCategoryLabels.join(" | ");
     }
   }
 
-  return (
-    transaction.categoryPath ||
-    transaction.category ||
-    "-"
-  );
+  return transaction.categoryPath || transaction.category || "-";
 }
 
 function Anasayfa() {
   const dispatch = useDispatch();
 
-  const currentUser = useSelector(
-    selectCurrentUser,
+  const currentUser = useSelector(selectCurrentUser);
+
+  const authStatus = useSelector(selectAuthStatus);
+
+  const transactions = useSelector(selectTransactions);
+
+  const transactionLoadStatus = useSelector(selectTransactionLoadStatus);
+
+  const transactionError = useSelector(selectTransactionError);
+
+  const transactionSuccessMessage = useSelector(
+    selectTransactionSuccessMessage,
   );
 
-  const authStatus = useSelector(
-    selectAuthStatus,
+  const activeCategories = useSelector(selectActiveCategories);
+
+  const totalIncomeMinor = useSelector(selectTotalIncomeMinor);
+
+  const netExpenseMinor = useSelector(selectNetExpenseMinor);
+
+  const totalRefundMinor = useSelector(selectTotalRefundMinor);
+
+  const netBalanceMinor = useSelector(selectNetBalanceMinor);
+
+  const [selectedFilterCategoryIds, setSelectedFilterCategoryIds] = useState(
+    [],
   );
 
-  const transactions = useSelector(
-    selectTransactions,
-  );
+  const [includeDescendants, setIncludeDescendants] = useState(true);
 
-  const transactionLoadStatus =
-    useSelector(
-      selectTransactionLoadStatus,
-    );
-
-  const transactionError = useSelector(
-    selectTransactionError,
-  );
-
-  const transactionSuccessMessage =
-    useSelector(
-      selectTransactionSuccessMessage,
-    );
-
-  const activeCategories = useSelector(
-    selectActiveCategories,
-  );
-
-  const totalIncomeMinor = useSelector(
-    selectTotalIncomeMinor,
-  );
-
-  const netExpenseMinor = useSelector(
-    selectNetExpenseMinor,
-  );
-
-  const totalRefundMinor = useSelector(
-    selectTotalRefundMinor,
-  );
-
-  const netBalanceMinor = useSelector(
-    selectNetBalanceMinor,
-  );
-
-  const [
-    selectedFilterCategoryIds,
-    setSelectedFilterCategoryIds,
-  ] = useState([]);
-
-  const [
-    includeDescendants,
-    setIncludeDescendants,
-  ] = useState(true);
-
-  const isLoggingOut =
-    authStatus === "loading";
+  const isLoggingOut = authStatus === "loading";
 
   const categoryTotals = useMemo(() => {
     const totals = {};
 
-    activeCategories.forEach(
-      (category) => {
-        totals[category.id] = {
-          incomeMinor: 0,
-          expenseMinor: 0,
-        };
-      },
-    );
+    activeCategories.forEach((category) => {
+      totals[category.id] = {
+        incomeMinor: 0,
 
-    transactions.forEach(
-      (transaction) => {
-        const categoryItems =
-          getTransactionCategoryItems(
-            transaction,
-            activeCategories,
-          );
+        expenseMinor: 0,
+      };
+    });
 
-        categoryItems.forEach(
-          (categoryItem) => {
-            categoryItem.categoryPathIds.forEach(
-              (pathCategoryId) => {
-                if (
-                  !totals[pathCategoryId]
-                ) {
-                  return;
-                }
+    transactions.forEach((transaction) => {
+      const categoryItems = getTransactionCategoryItems(
+        transaction,
+        activeCategories,
+      );
 
-                if (
-                  transaction.transactionType ===
-                  "Gelir"
-                ) {
-                  totals[
-                    pathCategoryId
-                  ].incomeMinor +=
-                    categoryItem.amountMinor;
-                } else if (
-                  transaction.transactionType ===
-                  "İade"
-                ) {
-                  totals[
-                    pathCategoryId
-                  ].expenseMinor -=
-                    categoryItem.amountMinor;
-                } else {
-                  totals[
-                    pathCategoryId
-                  ].expenseMinor +=
-                    categoryItem.amountMinor;
-                }
-              },
-            );
-          },
-        );
-      },
-    );
+      categoryItems.forEach((categoryItem) => {
+        categoryItem.categoryPathIds.forEach((pathCategoryId) => {
+          if (!totals[pathCategoryId]) {
+            return;
+          }
+
+          if (transaction.transactionType === "Gelir") {
+            totals[pathCategoryId].incomeMinor += categoryItem.amountMinor;
+          } else if (transaction.transactionType === "İade") {
+            totals[pathCategoryId].expenseMinor -= categoryItem.amountMinor;
+          } else {
+            totals[pathCategoryId].expenseMinor += categoryItem.amountMinor;
+          }
+        });
+      });
+    });
 
     return totals;
+  }, [activeCategories, transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    if (selectedFilterCategoryIds.length === 0) {
+      return transactions;
+    }
+
+    return transactions.filter((transaction) => {
+      const categoryItems = getTransactionCategoryItems(
+        transaction,
+        activeCategories,
+      );
+
+      return selectedFilterCategoryIds.some((filterCategoryId) =>
+        categoryItems.some((categoryItem) =>
+          includeDescendants
+            ? categoryItem.categoryPathIds.includes(filterCategoryId)
+            : categoryItem.categoryId === filterCategoryId,
+        ),
+      );
+    });
   }, [
     activeCategories,
+    includeDescendants,
+    selectedFilterCategoryIds,
     transactions,
   ]);
 
-  const filteredTransactions =
-    useMemo(() => {
-      if (
-        selectedFilterCategoryIds.length ===
-        0
-      ) {
-        return transactions;
-      }
-
-      return transactions.filter(
-        (transaction) => {
-          const categoryItems =
-            getTransactionCategoryItems(
-              transaction,
-              activeCategories,
-            );
-
-          return selectedFilterCategoryIds.some(
-            (filterCategoryId) =>
-              categoryItems.some(
-                (categoryItem) =>
-                  includeDescendants
-                    ? categoryItem.categoryPathIds.includes(
-                        filterCategoryId,
-                      )
-                    : categoryItem.categoryId ===
-                      filterCategoryId,
-              ),
-          );
-        },
-      );
-    }, [
-      activeCategories,
-      includeDescendants,
-      selectedFilterCategoryIds,
-      transactions,
-    ]);
-
+  // 9.GÜN - Kullanıcı giriş yaptığında kredi kartı kayıtlarının yüklenmesi sağlandı.
   useEffect(() => {
     if (!currentUser?.id) {
       return;
     }
 
-    dispatch(
-      loadTransactions(currentUser.id),
-    );
+    dispatch(loadTransactions(currentUser.id));
 
-    dispatch(
-      loadCategories(currentUser.id),
-    );
+    dispatch(loadCategories(currentUser.id));
 
-    dispatch(
-      loadCatalog(currentUser.id),
-    );
-  }, [
-    dispatch,
-    currentUser?.id,
-  ]);
+    dispatch(loadCatalog(currentUser.id));
+
+    dispatch(loadCreditCards(currentUser.id));
+  }, [dispatch, currentUser?.id]);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
   };
 
-  const handleCategoryFilterChange = (
-    filterCategoryId,
-  ) => {
-    setSelectedFilterCategoryIds(
-      (currentCategoryIds) =>
-        currentCategoryIds.includes(
-          filterCategoryId,
-        )
-          ? currentCategoryIds.filter(
-              (categoryItemId) =>
-                categoryItemId !==
-                filterCategoryId,
-            )
-          : [
-              ...currentCategoryIds,
-              filterCategoryId,
-            ],
+  const handleCategoryFilterChange = (filterCategoryId) => {
+    setSelectedFilterCategoryIds((currentCategoryIds) =>
+      currentCategoryIds.includes(filterCategoryId)
+        ? currentCategoryIds.filter(
+            (categoryItemId) => categoryItemId !== filterCategoryId,
+          )
+        : [...currentCategoryIds, filterCategoryId],
     );
   };
 
   return (
     <div className="page-container dashboard-page-container">
       <div className="welcome-card transaction-card">
-        <h1 className="welcome-title">
-          Hoş Geldiniz
-        </h1>
+        <h1 className="welcome-title">Hoş Geldiniz</h1>
 
         <p className="page-description">
-          FinanceFlow ana sayfasına giriş
-          yapıldı.
+          FinanceFlow ana sayfasına giriş yapıldı.
         </p>
 
-        <p className="user-email">
-          {currentUser?.email}
-        </p>
+        <p className="user-email">{currentUser?.email}</p>
 
         <CategorySection
           categoryTotals={categoryTotals}
@@ -480,31 +328,23 @@ function Anasayfa() {
 
         <CatalogSection />
 
+        <CreditCardSection />
+
         <TransactionForm
-          getTodayDateValue={
-            getTodayDateValue
-          }
-          convertInputAmountToMinor={
-            convertInputAmountToMinor
-          }
+          getTodayDateValue={getTodayDateValue}
+          convertInputAmountToMinor={convertInputAmountToMinor}
           formatAmount={formatAmount}
         />
 
         {transactionSuccessMessage && (
           <div className="success-message">
-            <span>
-              {transactionSuccessMessage}
-            </span>
+            <span>{transactionSuccessMessage}</span>
 
             <button
               type="button"
               className="message-close-button"
               aria-label="Başarı mesajını kapat"
-              onClick={() =>
-                dispatch(
-                  clearTransactionMessage(),
-                )
-              }
+              onClick={() => dispatch(clearTransactionMessage())}
             >
               ×
             </button>
@@ -512,23 +352,14 @@ function Anasayfa() {
         )}
 
         {transactionError && (
-          <div
-            className="error-message-panel"
-            role="alert"
-          >
-            <span>
-              {transactionError}
-            </span>
+          <div className="error-message-panel" role="alert">
+            <span>{transactionError}</span>
 
             <button
               type="button"
               className="message-close-button"
               aria-label="Hata mesajını kapat"
-              onClick={() =>
-                dispatch(
-                  clearTransactionError(),
-                )
-              }
+              onClick={() => dispatch(clearTransactionError())}
             >
               ×
             </button>
@@ -536,83 +367,41 @@ function Anasayfa() {
         )}
 
         <FinanceSummary
-          totalIncomeMinor={
-            totalIncomeMinor
-          }
-          netExpenseMinor={
-            netExpenseMinor
-          }
-          totalRefundMinor={
-            totalRefundMinor
-          }
-          netBalanceMinor={
-            netBalanceMinor
-          }
+          totalIncomeMinor={totalIncomeMinor}
+          netExpenseMinor={netExpenseMinor}
+          totalRefundMinor={totalRefundMinor}
+          netBalanceMinor={netBalanceMinor}
           formatAmount={formatAmount}
         />
 
         <RefundSection
-          getTodayDateValue={
-            getTodayDateValue
-          }
-          formatTransactionDate={
-            formatTransactionDate
-          }
-          getTransactionCategoryLabel={
-            getTransactionCategoryLabel
-          }
+          getTodayDateValue={getTodayDateValue}
+          formatTransactionDate={formatTransactionDate}
+          getTransactionCategoryLabel={getTransactionCategoryLabel}
           formatAmount={formatAmount}
         />
 
-        <ProductAnalysis
-          formatDate={formatDate}
-          formatAmount={formatAmount}
-        />
+        <ProductAnalysis formatDate={formatDate} formatAmount={formatAmount} />
 
-        <FuelAnalysis
-          formatDate={formatDate}
-          formatAmount={formatAmount}
-        />
+        <FuelAnalysis formatDate={formatDate} formatAmount={formatAmount} />
 
         <CategoryFilter
-          selectedFilterCategoryIds={
-            selectedFilterCategoryIds
-          }
-          setSelectedFilterCategoryIds={
-            setSelectedFilterCategoryIds
-          }
-          includeDescendants={
-            includeDescendants
-          }
-          setIncludeDescendants={
-            setIncludeDescendants
-          }
-          activeCategories={
-            activeCategories
-          }
-          handleCategoryFilterChange={
-            handleCategoryFilterChange
-          }
+          selectedFilterCategoryIds={selectedFilterCategoryIds}
+          setSelectedFilterCategoryIds={setSelectedFilterCategoryIds}
+          includeDescendants={includeDescendants}
+          setIncludeDescendants={setIncludeDescendants}
+          activeCategories={activeCategories}
+          handleCategoryFilterChange={handleCategoryFilterChange}
         />
 
         <TransactionTable
-          transactionLoadStatus={
-            transactionLoadStatus
-          }
+          transactionLoadStatus={transactionLoadStatus}
           transactions={transactions}
-          filteredTransactions={
-            filteredTransactions
-          }
-          selectedFilterCategoryIds={
-            selectedFilterCategoryIds
-          }
-          getTransactionCategoryLabel={
-            getTransactionCategoryLabel
-          }
+          filteredTransactions={filteredTransactions}
+          selectedFilterCategoryIds={selectedFilterCategoryIds}
+          getTransactionCategoryLabel={getTransactionCategoryLabel}
           formatAmount={formatAmount}
-          formatTransactionDate={
-            formatTransactionDate
-          }
+          formatTransactionDate={formatTransactionDate}
         />
 
         <button
@@ -621,9 +410,7 @@ function Anasayfa() {
           onClick={handleLogout}
           disabled={isLoggingOut}
         >
-          {isLoggingOut
-            ? "Çıkış Yapılıyor..."
-            : "Çıkış Yap"}
+          {isLoggingOut ? "Çıkış Yapılıyor..." : "Çıkış Yap"}
         </button>
       </div>
     </div>
