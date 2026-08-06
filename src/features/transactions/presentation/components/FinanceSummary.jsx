@@ -13,7 +13,8 @@ function FinanceSummary({
 }) {
   return (
     <section className="category-management-section">
-      <h2 className="section-title">6.GÜN Finans Özeti</h2>
+      {/* 10.GÜN - Finans özeti başlığındaki gün ifadesi kaldırıldı. */}
+      <h2 className="section-title">Finans Özeti</h2>
 
       <div className="category-form-grid">
         <div className="category-action-panel">

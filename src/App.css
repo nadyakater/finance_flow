@@ -790,6 +790,43 @@ body {
   margin-top: 0;
 }
 
+/* 10.GÜN - Kullanıcı bilgileri ve çıkış butonu için üst bölüm tasarımı oluşturuldu. */
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px;
+  border: 1px solid #f8bbd0;
+  border-radius: 12px;
+  background-color: #ffffff;
+}
+
+.dashboard-header-content {
+  flex: 1;
+}
+
+.dashboard-header .welcome-title,
+.dashboard-header .page-description,
+.dashboard-header .user-email {
+  text-align: left;
+}
+
+.dashboard-header .page-description {
+  margin: 8px 0;
+}
+
+.dashboard-header .user-email {
+  margin: 8px 0 0;
+}
+
+.transaction-card .dashboard-logout-button {
+  flex-shrink: 0;
+  display: inline-block;
+  margin: 0;
+}
+
 /* Ekran boyutlarına göre responsive düzenlemeler. */
 
 @media (max-width: 1100px) {
@@ -851,6 +888,21 @@ body {
 
   .fuel-analysis-filter {
     max-width: 100%;
+  }
+
+  .dashboard-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-header .welcome-title,
+  .dashboard-header .page-description,
+  .dashboard-header .user-email {
+    text-align: center;
+  }
+
+  .transaction-card .dashboard-logout-button {
+    width: 100%;
   }
 }
 
