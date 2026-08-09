@@ -619,7 +619,7 @@ function ExpenseLineItem({
           >
             {isFuelProduct
               ? "Yakıt Toplam Tutarı *"
-              : "Satır Brüt Tutarı *"}
+              : "Tutar *"}
           </label>
 
           <input

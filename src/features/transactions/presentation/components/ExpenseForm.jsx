@@ -2,10 +2,13 @@ import ExpenseLineItem from "./ExpenseLineItem";
 
 // =====================================================
 // 7.GÜN
-// Çok satırlı gider formunun firma, şube, satırlar,
-// indirim, kupon ve toplam alanlarını gösterir.
+// Çok satırlı gider formunun firma, şube, satırlar
+// ve indirim alanlarını gösterir.
 //
-// Fiş/fatura dosyası yükleme özelliği kaldırıldı.
+// 8.GÜN
+// Gider alanları daha anlaşılır hale getirildi.
+// Kupon kodu ve elle girilen net toplam kaldırıldı.
+// Toplam gider otomatik olarak hesaplanır.
 // =====================================================
 
 function ExpenseForm({
@@ -25,10 +28,6 @@ function ExpenseForm({
   handleAddExpenseLine,
   transactionDiscount,
   setTransactionDiscount,
-  couponCode,
-  setCouponCode,
-  receiptTotal,
-  setReceiptTotal,
   expenseTotals,
   formatAmount,
 }) {
@@ -195,59 +194,11 @@ function ExpenseForm({
             }
           />
         </div>
-
-        <div>
-          <label
-            className="form-label"
-            htmlFor="couponCode"
-          >
-            Kupon Kodu
-          </label>
-
-          <input
-            id="couponCode"
-            className="form-input"
-            type="text"
-            maxLength="50"
-            placeholder="İsteğe bağlı"
-            value={couponCode}
-            onChange={(event) =>
-              setCouponCode(
-                event.target.value,
-              )
-            }
-          />
-        </div>
-
-        <div>
-          <label
-            className="form-label"
-            htmlFor="receiptTotal"
-          >
-            İşlemin Net Toplamı *
-          </label>
-
-          <input
-            id="receiptTotal"
-            className="form-input"
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="Net işlem toplamı"
-            value={receiptTotal}
-            onChange={(event) =>
-              setReceiptTotal(
-                event.target.value,
-              )
-            }
-            required
-          />
-        </div>
       </div>
 
       <div className="category-action-panel expense-total-panel">
         <p className="selected-category-text">
-          Brüt Satır Toplamı:{" "}
+          Satır Toplamı:{" "}
           <strong>
             {formatAmount(
               expenseTotals.subtotalMinor,
@@ -277,7 +228,7 @@ function ExpenseForm({
         </p>
 
         <p className="selected-category-text">
-          Hesaplanan Net Toplam:{" "}
+          Toplam Gider:{" "}
           <strong>
             {formatAmount(
               expenseTotals.netTotalMinor,
@@ -285,28 +236,6 @@ function ExpenseForm({
             ₺
           </strong>
         </p>
-
-        {receiptTotal && (
-          <p className="selected-category-text">
-            Girilen İşlem Toplamı:{" "}
-            <strong>
-              {Number(
-                String(
-                  receiptTotal,
-                ).replace(",", "."),
-              ).toLocaleString(
-                "tr-TR",
-                {
-                  minimumFractionDigits:
-                    2,
-                  maximumFractionDigits:
-                    2,
-                },
-              )}{" "}
-              ₺
-            </strong>
-          </p>
-        )}
       </div>
     </>
   );

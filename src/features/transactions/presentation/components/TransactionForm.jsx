@@ -127,28 +127,8 @@ function calculateFuelTotalMinor(
   );
 }
 
-// =====================================================
-// 7.GÜN
-// Gelir ve çok satırlı gider kayıt formu.
-//
-// Kalıcı veriler Redux üzerinden alınır.
-// Firebase'e doğrudan erişilmez.
-//
-// 8.GÜN
-// Yakıt ürünleri için yakıt türü, litre, litre fiyatı,
-// araç ve odometre alanları eklendi.
-// Litre × litre fiyatı ile satır toplamı doğrulanır.
-//
-// Fiş/fatura dosyası yükleme özelliği kaldırıldı.
-// =====================================================
-
-function TransactionForm({
-  getTodayDateValue,
-  convertInputAmountToMinor,
-  formatAmount,
-}) {
-  const dispatch =
-    useDispatch();
+function TransactionForm() {
+  const dispatch = useDispatch();
 
   const currentUser =
     useSelector(
@@ -170,6 +150,16 @@ function TransactionForm({
       selectCategoryLoadStatus,
     );
 
+  const products =
+    useSelector(
+      selectProducts,
+    );
+
+  const brands =
+    useSelector(
+      selectBrands,
+    );
+
   const merchants =
     useSelector(
       selectMerchants,
@@ -180,15 +170,55 @@ function TransactionForm({
       selectBranches,
     );
 
-  const brands =
-    useSelector(
-      selectBrands,
-    );
+  const getTodayDateValue =
+    () => {
+      const today =
+        new Date();
 
-  const products =
-    useSelector(
-      selectProducts,
-    );
+      const year =
+        today.getFullYear();
+
+      const month =
+        String(
+          today.getMonth() + 1,
+        ).padStart(2, "0");
+
+      const day =
+        String(
+          today.getDate(),
+        ).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    };
+
+  const formatAmount =
+    (amountMinor) => {
+      return (
+        amountMinor / 100
+      ).toLocaleString(
+        "tr-TR",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        },
+      );
+    };
+
+  const convertInputAmountToMinor =
+    (value) => {
+      const numericValue =
+        getSafeNumber(value);
+
+      if (
+        numericValue <= 0
+      ) {
+        return 0;
+      }
+
+      return Math.round(
+        numericValue * 100,
+      );
+    };
 
   const [
     transactionType,
@@ -235,18 +265,8 @@ function TransactionForm({
   ] = useState(2);
 
   const [
-    receiptTotal,
-    setReceiptTotal,
-  ] = useState("");
-
-  const [
     transactionDiscount,
     setTransactionDiscount,
-  ] = useState("");
-
-  const [
-    couponCode,
-    setCouponCode,
   ] = useState("");
 
   const [
@@ -370,7 +390,6 @@ function TransactionForm({
           ),
       };
     }, [
-      convertInputAmountToMinor,
       expenseLines,
       transactionDiscount,
     ]);
@@ -502,11 +521,7 @@ function TransactionForm({
 
       setNextExpenseLineId(2);
 
-      setReceiptTotal("");
-
       setTransactionDiscount("");
-
-      setCouponCode("");
 
       setMerchantId("");
 
@@ -532,11 +547,7 @@ function TransactionForm({
         selectedTransactionType ===
         "Gelir"
       ) {
-        setReceiptTotal("");
-
         setTransactionDiscount("");
-
-        setCouponCode("");
 
         setMerchantId("");
 
@@ -566,8 +577,6 @@ function TransactionForm({
         (currentId) =>
           currentId + 1,
       );
-
-      setTransactionFormError("");
     };
 
   const handleRemoveExpenseLine =
@@ -575,7 +584,8 @@ function TransactionForm({
       setExpenseLines(
         (currentLines) => {
           if (
-            currentLines.length === 1
+            currentLines.length ===
+            1
           ) {
             return currentLines;
           }
@@ -586,15 +596,13 @@ function TransactionForm({
           );
         },
       );
-
-      setTransactionFormError("");
     };
 
   const handleExpenseLineChange =
     (
       lineId,
       fieldName,
-      value,
+      fieldValue,
     ) => {
       setExpenseLines(
         (currentLines) =>
@@ -608,14 +616,26 @@ function TransactionForm({
 
               if (
                 fieldName ===
+                "categoryId"
+              ) {
+                return {
+                  ...line,
+
+                  categoryId:
+                    fieldValue,
+                };
+              }
+
+              if (
+                fieldName ===
                 "productId"
               ) {
                 const selectedProduct =
                   products.find(
                     (product) =>
                       product.id ===
-                      value,
-                  );
+                      fieldValue,
+                  ) ?? null;
 
                 if (
                   !selectedProduct
@@ -653,19 +673,11 @@ function TransactionForm({
                     vehicleId: "",
 
                     odometer: "",
-
-                    amount: "",
                   };
                 }
 
-                const selectedProductType =
-                  selectedProduct.productType ===
-                  "fuel"
-                    ? "fuel"
-                    : "standard";
-
                 if (
-                  selectedProductType ===
+                  selectedProduct.productType ===
                   "fuel"
                 ) {
                   return {
@@ -681,19 +693,6 @@ function TransactionForm({
                       selectedProduct.brandId ??
                       "",
 
-                    fuelType:
-                      selectedProduct.fuelType ||
-                      "gasoline",
-
-                    liters: "",
-
-                    fuelUnitPrice:
-                      "",
-
-                    vehicleId: "",
-
-                    odometer: "",
-
                     purchaseQuantity:
                       "1",
 
@@ -705,7 +704,19 @@ function TransactionForm({
 
                     unitPrice: "",
 
-                    amount: "",
+                    fuelType:
+                      selectedProduct.fuelType ??
+                      "gasoline",
+
+                    liters: "",
+
+                    fuelUnitPrice:
+                      selectedProduct.defaultUnitPrice ??
+                      "",
+
+                    vehicleId: "",
+
+                    odometer: "",
                   };
                 }
 
@@ -716,6 +727,7 @@ function TransactionForm({
                     selectedProduct.id,
 
                   productType:
+                    selectedProduct.productType ??
                     "standard",
 
                   brandId:
@@ -726,385 +738,457 @@ function TransactionForm({
                     "1",
 
                   unitCount:
-                    selectedProduct.unitCount !==
-                    undefined
-                      ? String(
-                          selectedProduct.unitCount,
-                        )
-                      : "1",
+                    String(
+                      selectedProduct.unitCount ??
+                        1,
+                    ),
 
                   unitSize:
-                    selectedProduct.unitSize !==
-                    undefined
-                      ? String(
-                          selectedProduct.unitSize,
-                        )
-                      : "1",
+                    String(
+                      selectedProduct.unitSize ??
+                        1,
+                    ),
 
                   unitType:
                     selectedProduct.unitType ??
                     "adet",
 
-                  unitPrice: "",
+                  unitPrice:
+                    selectedProduct.defaultUnitPrice ??
+                    "",
 
-                  fuelType: "",
+                  fuelType:
+                    "gasoline",
 
                   liters: "",
 
-                  fuelUnitPrice: "",
+                  fuelUnitPrice:
+                    "",
 
                   vehicleId: "",
 
                   odometer: "",
-
-                  amount: "",
                 };
               }
 
-              const updatedLine = {
+              return {
                 ...line,
 
-                [fieldName]: value,
+                [fieldName]:
+                  fieldValue,
               };
-
-              if (
-                updatedLine.productType ===
-                  "fuel" &&
-                (
-                  fieldName ===
-                    "liters" ||
-                  fieldName ===
-                    "fuelUnitPrice"
-                )
-              ) {
-                const fuelTotalMinor =
-                  calculateFuelTotalMinor(
-                    updatedLine.liters,
-                    updatedLine.fuelUnitPrice,
-                  );
-
-                updatedLine.amount =
-                  fuelTotalMinor > 0
-                    ? (
-                        fuelTotalMinor /
-                        100
-                      ).toFixed(2)
-                    : "";
-              }
-
-              return updatedLine;
             },
           ),
       );
-
-      setTransactionFormError("");
     };
 
   const prepareExpenseLines =
     () => {
-      const preparedExpenseLines =
-        [];
-
-      for (
-        let index = 0;
-        index < expenseLines.length;
-        index += 1
+      if (
+        expenseLines.length ===
+        0
       ) {
-        const expenseLine =
-          expenseLines[index];
-
-        const selectedLineCategory =
-          activeCategories.find(
-            (category) =>
-              category.id ===
-              expenseLine.categoryId,
-          );
-
-        if (
-          !selectedLineCategory
-        ) {
-          throw new Error(
-            `${index + 1}. gider satırı için kategori seçiniz.`,
-          );
-        }
-
-        const lineAmount =
-          getSafeNumber(
-            expenseLine.amount,
-          );
-
-        const lineDiscount =
-          getSafeNumber(
-            expenseLine.discount,
-          );
-
-        if (
-          lineAmount <= 0
-        ) {
-          throw new Error(
-            `${index + 1}. gider satırının tutarı sıfırdan büyük olmalıdır.`,
-          );
-        }
-
-        if (
-          lineDiscount < 0 ||
-          lineDiscount >
-            lineAmount
-        ) {
-          throw new Error(
-            `${index + 1}. gider satırındaki indirim tutarı geçersizdir.`,
-          );
-        }
-
-        const selectedProduct =
-          products.find(
-            (product) =>
-              product.id ===
-              expenseLine.productId,
-          );
-
-        const selectedBrand =
-          brands.find(
-            (brand) =>
-              brand.id ===
-              expenseLine.brandId,
-          );
-
-        const isFuelProduct =
-          selectedProduct?.productType ===
-            "fuel" ||
-          expenseLine.productType ===
-            "fuel";
-
-        if (
-          expenseLine.productId &&
-          !isFuelProduct
-        ) {
-          if (
-            getSafeNumber(
-              expenseLine.purchaseQuantity,
-            ) <= 0
-          ) {
-            throw new Error(
-              `${index + 1}. gider satırındaki satın alınan miktar geçersizdir.`,
-            );
-          }
-
-          if (
-            getSafeNumber(
-              expenseLine.unitCount,
-            ) <= 0
-          ) {
-            throw new Error(
-              `${index + 1}. gider satırındaki paket içi adet geçersizdir.`,
-            );
-          }
-
-          if (
-            getSafeNumber(
-              expenseLine.unitSize,
-            ) <= 0
-          ) {
-            throw new Error(
-              `${index + 1}. gider satırındaki ürün miktarı geçersizdir.`,
-            );
-          }
-        }
-
-        if (isFuelProduct) {
-          const liters =
-            getSafeNumber(
-              expenseLine.liters,
-            );
-
-          const fuelUnitPrice =
-            getSafeNumber(
-              expenseLine.fuelUnitPrice,
-            );
-
-          if (liters <= 0) {
-            throw new Error(
-              `${index + 1}. yakıt satırındaki litre miktarı sıfırdan büyük olmalıdır.`,
-            );
-          }
-
-          if (
-            fuelUnitPrice <= 0
-          ) {
-            throw new Error(
-              `${index + 1}. yakıt satırındaki litre fiyatı sıfırdan büyük olmalıdır.`,
-            );
-          }
-
-          if (
-            !expenseLine.fuelType
-          ) {
-            throw new Error(
-              `${index + 1}. yakıt satırı için yakıt türünü seçiniz.`,
-            );
-          }
-
-          const expectedFuelTotalMinor =
-            calculateFuelTotalMinor(
-              expenseLine.liters,
-              expenseLine.fuelUnitPrice,
-            );
-
-          const enteredFuelTotalMinor =
-            convertInputAmountToMinor(
-              expenseLine.amount,
-            );
-
-          const differenceMinor =
-            Math.abs(
-              expectedFuelTotalMinor -
-                enteredFuelTotalMinor,
-            );
-
-          if (
-            differenceMinor >
-            FUEL_TOTAL_TOLERANCE_MINOR
-          ) {
-            throw new Error(
-              `${index + 1}. yakıt satırının toplamı ${formatAmount(
-                expectedFuelTotalMinor,
-              )} ₺ olmalıdır. Litre ile litre fiyatını kontrol ediniz.`,
-            );
-          }
-        }
-
-        preparedExpenseLines.push({
-          id:
-            expenseLine.id,
-
-          categoryId:
-            selectedLineCategory.id,
-
-          category:
-            selectedLineCategory.name,
-
-          categoryPath:
-            selectedLineCategory.pathNames.join(
-              " > ",
-            ),
-
-          categoryPathIds:
-            selectedLineCategory.pathIds,
-
-          categoryType:
-            selectedLineCategory.categoryType,
-
-          productId:
-            selectedProduct?.id ??
-            "",
-
-          productName:
-            selectedProduct?.name ??
-            "",
-
-          productType:
-            isFuelProduct
-              ? "fuel"
-              : "standard",
-
-          brandId:
-            selectedBrand?.id ??
-            selectedProduct?.brandId ??
-            "",
-
-          brandName:
-            selectedBrand?.name ??
-            selectedProduct?.brandName ??
-            "",
-
-          purchaseQuantity:
-            isFuelProduct
-              ? expenseLine.liters
-              : expenseLine.productId
-                ? expenseLine.purchaseQuantity
-                : "",
-
-          unitCount:
-            isFuelProduct
-              ? "1"
-              : expenseLine.productId
-                ? expenseLine.unitCount
-                : "",
-
-          unitSize:
-            isFuelProduct
-              ? "1"
-              : expenseLine.productId
-                ? expenseLine.unitSize
-                : "",
-
-          unitType:
-            isFuelProduct
-              ? "l"
-              : expenseLine.productId
-                ? expenseLine.unitType
-                : "adet",
-
-          unitPrice:
-            isFuelProduct
-              ? expenseLine.fuelUnitPrice
-              : expenseLine.productId
-                ? expenseLine.unitPrice
-                : "",
-
-          fuelType:
-            isFuelProduct
-              ? expenseLine.fuelType ||
-                selectedProduct?.fuelType ||
-                "other"
-              : "",
-
-          liters:
-            isFuelProduct
-              ? expenseLine.liters
-              : "",
-
-          fuelUnitPrice:
-            isFuelProduct
-              ? expenseLine.fuelUnitPrice
-              : "",
-
-          vehicleId:
-            isFuelProduct
-              ? expenseLine.vehicleId
-              : "",
-
-          odometer:
-            isFuelProduct
-              ? expenseLine.odometer
-              : "",
-
-          amount:
-            expenseLine.amount,
-
-          discount:
-            expenseLine.discount ||
-            0,
-
-          note:
-            expenseLine.note,
-        });
+        throw new Error(
+          "En az bir gider satırı eklemelisiniz.",
+        );
       }
 
-      return preparedExpenseLines;
+      return expenseLines.map(
+        (line, index) => {
+          const lineNumber =
+            index + 1;
+
+          const selectedCategory =
+            activeCategories.find(
+              (category) =>
+                category.id ===
+                line.categoryId,
+            );
+
+          if (
+            !selectedCategory
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırında kategori seçmelisiniz.`,
+            );
+          }
+
+          if (
+            !(
+              selectedCategory.categoryType ===
+                "expense" ||
+              selectedCategory.categoryType ===
+                "both"
+            )
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırındaki kategori gider işlemlerinde kullanılamaz.`,
+            );
+          }
+
+          const amountMinor =
+            convertInputAmountToMinor(
+              line.amount,
+            );
+
+          if (
+            amountMinor <= 0
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırında tutar sıfırdan büyük olmalıdır.`,
+            );
+          }
+
+          const discountMinor =
+            line.discount
+              ? convertInputAmountToMinor(
+                  line.discount,
+                )
+              : 0;
+
+          if (
+            discountMinor < 0
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırındaki indirim negatif olamaz.`,
+            );
+          }
+
+          if (
+            discountMinor >
+            amountMinor
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırındaki indirim tutardan büyük olamaz.`,
+            );
+          }
+
+          const selectedProduct =
+            products.find(
+              (product) =>
+                product.id ===
+                line.productId,
+            ) ?? null;
+
+          const selectedBrand =
+            brands.find(
+              (brand) =>
+                brand.id ===
+                line.brandId,
+            ) ?? null;
+
+          const isFuelProduct =
+            selectedProduct?.productType ===
+              "fuel" ||
+            line.productType ===
+              "fuel";
+
+          if (isFuelProduct) {
+            const liters =
+              getSafeNumber(
+                line.liters,
+              );
+
+            const fuelUnitPrice =
+              getSafeNumber(
+                line.fuelUnitPrice,
+              );
+
+            if (
+              liters <= 0
+            ) {
+              throw new Error(
+                `${lineNumber}. yakıt satırında alınan litre sıfırdan büyük olmalıdır.`,
+              );
+            }
+
+            if (
+              fuelUnitPrice <= 0
+            ) {
+              throw new Error(
+                `${lineNumber}. yakıt satırında litre fiyatı sıfırdan büyük olmalıdır.`,
+              );
+            }
+
+            const calculatedFuelTotalMinor =
+              calculateFuelTotalMinor(
+                liters,
+                fuelUnitPrice,
+              );
+
+            if (
+              Math.abs(
+                calculatedFuelTotalMinor -
+                  amountMinor,
+              ) >
+              FUEL_TOTAL_TOLERANCE_MINOR
+            ) {
+              throw new Error(
+                `${lineNumber}. yakıt satırında toplam tutar litre × litre fiyatı hesabıyla uyuşmuyor.`,
+              );
+            }
+
+            const odometer =
+              line.odometer === ""
+                ? null
+                : getSafeNumber(
+                    line.odometer,
+                  );
+
+            if (
+              odometer !== null &&
+              odometer < 0
+            ) {
+              throw new Error(
+                `${lineNumber}. yakıt satırında kilometre negatif olamaz.`,
+              );
+            }
+
+            return {
+              categoryId:
+                selectedCategory.id,
+
+              category:
+                selectedCategory.name,
+
+              categoryPath:
+                selectedCategory.pathNames.join(
+                  " > ",
+                ),
+
+              categoryPathIds:
+                selectedCategory.pathIds,
+
+              categoryType:
+                selectedCategory.categoryType,
+
+              productId:
+                selectedProduct?.id ??
+                "",
+
+              productName:
+                selectedProduct?.name ??
+                "",
+
+              productType:
+                "fuel",
+
+              brandId:
+                selectedBrand?.id ??
+                selectedProduct?.brandId ??
+                "",
+
+              brandName:
+                selectedBrand?.name ??
+                "",
+
+              amount:
+                line.amount,
+
+              discount:
+                line.discount || "0",
+
+              note:
+                line.note.trim(),
+
+              fuelType:
+                line.fuelType ||
+                selectedProduct?.fuelType ||
+                "gasoline",
+
+              liters:
+                String(liters),
+
+              fuelUnitPrice:
+                String(
+                  fuelUnitPrice,
+                ),
+
+              vehicleId:
+                line.vehicleId.trim(),
+
+              odometer:
+                odometer === null
+                  ? ""
+                  : String(
+                      odometer,
+                    ),
+
+              purchaseQuantity:
+                "1",
+
+              unitCount: "1",
+
+              unitSize: "1",
+
+              unitType: "l",
+
+              unitPrice:
+                String(
+                  fuelUnitPrice,
+                ),
+            };
+          }
+
+          const purchaseQuantity =
+            line.productId
+              ? getSafeNumber(
+                  line.purchaseQuantity,
+                )
+              : 1;
+
+          const unitCount =
+            line.productId
+              ? getSafeNumber(
+                  line.unitCount,
+                )
+              : 1;
+
+          const unitSize =
+            line.productId
+              ? getSafeNumber(
+                  line.unitSize,
+                )
+              : 1;
+
+          const unitPrice =
+            line.productId &&
+            line.unitPrice !== ""
+              ? getSafeNumber(
+                  line.unitPrice,
+                )
+              : 0;
+
+          if (
+            line.productId &&
+            purchaseQuantity <= 0
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırında satın alınan adet sıfırdan büyük olmalıdır.`,
+            );
+          }
+
+          if (
+            line.productId &&
+            unitCount <= 0
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırında paket içindeki ürün adedi sıfırdan büyük olmalıdır.`,
+            );
+          }
+
+          if (
+            line.productId &&
+            unitSize <= 0
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırında ürün miktarı sıfırdan büyük olmalıdır.`,
+            );
+          }
+
+          if (
+            line.productId &&
+            unitPrice < 0
+          ) {
+            throw new Error(
+              `${lineNumber}. gider satırında birim fiyat negatif olamaz.`,
+            );
+          }
+
+          return {
+            categoryId:
+              selectedCategory.id,
+
+            category:
+              selectedCategory.name,
+
+            categoryPath:
+              selectedCategory.pathNames.join(
+                " > ",
+              ),
+
+            categoryPathIds:
+              selectedCategory.pathIds,
+
+            categoryType:
+              selectedCategory.categoryType,
+
+            productId:
+              selectedProduct?.id ??
+              "",
+
+            productName:
+              selectedProduct?.name ??
+              "",
+
+            productType:
+              selectedProduct?.productType ??
+              line.productType ??
+              "standard",
+
+            brandId:
+              selectedBrand?.id ??
+              selectedProduct?.brandId ??
+              "",
+
+            brandName:
+              selectedBrand?.name ??
+              "",
+
+            purchaseQuantity:
+              String(
+                purchaseQuantity,
+              ),
+
+            unitCount:
+              String(unitCount),
+
+            unitSize:
+              String(unitSize),
+
+            unitType:
+              line.unitType ||
+              "adet",
+
+            unitPrice:
+              unitPrice > 0
+                ? String(
+                    unitPrice,
+                  )
+                : "",
+
+            amount:
+              line.amount,
+
+            discount:
+              line.discount || "0",
+
+            note:
+              line.note.trim(),
+
+            fuelType: "",
+
+            liters: "",
+
+            fuelUnitPrice: "",
+
+            vehicleId: "",
+
+            odometer: "",
+          };
+        },
+      );
     };
 
-  const handleAddTransaction =
+  const handleSubmit =
     async (event) => {
       event.preventDefault();
 
       setTransactionFormError("");
 
-      if (
-        !currentUser?.id
-      ) {
+      if (!currentUser?.id) {
         setTransactionFormError(
-          "İşlem oluşturmak için kullanıcı oturumu bulunamadı.",
+          "Kullanıcı bilgisi bulunamadı.",
         );
 
         return;
@@ -1114,7 +1198,7 @@ function TransactionForm({
         !transactionDate
       ) {
         setTransactionFormError(
-          "İşlem tarihi zorunludur.",
+          "İşlem tarihi seçilmelidir.",
         );
 
         return;
@@ -1191,8 +1275,6 @@ function TransactionForm({
             transactionDiscount:
               "",
 
-            couponCode: "",
-
             description,
 
             paymentMethod,
@@ -1242,31 +1324,6 @@ function TransactionForm({
             );
           }
 
-          const receiptTotalMinor =
-            convertInputAmountToMinor(
-              receiptTotal,
-            );
-
-          if (
-            receiptTotalMinor <=
-            0
-          ) {
-            throw new Error(
-              "Fiş toplamı sıfırdan büyük olmalıdır.",
-            );
-          }
-
-          if (
-            receiptTotalMinor !==
-            expenseTotals.netTotalMinor
-          ) {
-            throw new Error(
-              `Fiş toplamı ${formatAmount(
-                expenseTotals.netTotalMinor,
-              )} ₺ olmalıdır. Satır ve indirim tutarlarını kontrol ediniz.`,
-            );
-          }
-
           const firstLineCategory =
             activeCategories.find(
               (category) =>
@@ -1309,15 +1366,20 @@ function TransactionForm({
               firstLineCategory?.categoryType ??
               "expense",
 
+            // 8.GÜN
+            // Giderin toplam tutarı artık kullanıcıdan
+            // tekrar alınmıyor. Gider satırları ve
+            // indirimlerden otomatik hesaplanıyor.
             amount:
-              receiptTotal,
+              (
+                expenseTotals.netTotalMinor /
+                100
+              ).toFixed(2),
 
             lines:
               preparedExpenseLines,
 
             transactionDiscount,
-
-            couponCode,
 
             description,
 
@@ -1344,7 +1406,8 @@ function TransactionForm({
         }
       } catch (error) {
         setTransactionFormError(
-          error.message,
+          error.message ||
+            "Finansal kayıt hazırlanamadı.",
         );
 
         return;
@@ -1363,33 +1426,25 @@ function TransactionForm({
         )
       ) {
         resetTransactionForm();
-        return;
-      }
-
-      if (
-        addTransaction.rejected.match(
-          result,
-        )
-      ) {
-        setTransactionFormError(
-          result.payload ??
-            "Finansal kayıt oluşturulamadı.",
-        );
       }
     };
 
   return (
-    <>
+    <div className="category-action-panel">
+      <h2 className="archive-title">
+        Yeni Finansal Kayıt
+      </h2>
+
+      <p className="empty-message">
+        Gelir veya gider işlemlerinizi
+        buradan kaydedebilirsiniz.
+      </p>
+
       <form
-        className="transaction-form"
         onSubmit={
-          handleAddTransaction
+          handleSubmit
         }
       >
-        <h2 className="section-title">
-          Yeni Finansal Kayıt
-        </h2>
-
         <div className="form-row">
           <div>
             <label
@@ -1409,6 +1464,7 @@ function TransactionForm({
                 handleTransactionTypeChange
               }
               disabled={isSaving}
+              required
             >
               <option value="Gelir">
                 Gelir
@@ -1444,7 +1500,9 @@ function TransactionForm({
               required
             />
           </div>
+        </div>
 
+        <div className="form-row">
           <div>
             <label
               className="form-label"
@@ -1456,9 +1514,7 @@ function TransactionForm({
             <select
               id="paymentMethod"
               className="form-input"
-              value={
-                paymentMethod
-              }
+              value={paymentMethod}
               onChange={(event) =>
                 setPaymentMethod(
                   event.target.value,
@@ -1471,10 +1527,6 @@ function TransactionForm({
                 Nakit
               </option>
 
-              <option value="Banka Hesabı">
-                Banka Hesabı
-              </option>
-
               <option value="Banka Kartı">
                 Banka Kartı
               </option>
@@ -1483,8 +1535,8 @@ function TransactionForm({
                 Kredi Kartı
               </option>
 
-              <option value="Dijital Cüzdan">
-                Dijital Cüzdan
+              <option value="Havale / EFT">
+                Havale / EFT
               </option>
 
               <option value="Diğer">
@@ -1492,30 +1544,30 @@ function TransactionForm({
               </option>
             </select>
           </div>
-        </div>
 
-        <div>
-          <label
-            className="form-label"
-            htmlFor="transactionDescription"
-          >
-            Genel Açıklama
-          </label>
+          <div>
+            <label
+              className="form-label"
+              htmlFor="transactionDescription"
+            >
+              Açıklama
+            </label>
 
-          <textarea
-            id="transactionDescription"
-            className="form-input"
-            rows="3"
-            maxLength="500"
-            placeholder="İşlem hakkında isteğe bağlı açıklama"
-            value={description}
-            onChange={(event) =>
-              setDescription(
-                event.target.value,
-              )
-            }
-            disabled={isSaving}
-          />
+            <input
+              id="transactionDescription"
+              className="form-input"
+              type="text"
+              maxLength="250"
+              placeholder="İsteğe bağlı açıklama"
+              value={description}
+              onChange={(event) =>
+                setDescription(
+                  event.target.value,
+                )
+              }
+              disabled={isSaving}
+            />
+          </div>
         </div>
 
         {transactionType ===
@@ -1524,13 +1576,13 @@ function TransactionForm({
             <div>
               <label
                 className="form-label"
-                htmlFor="category"
+                htmlFor="transactionCategory"
               >
                 Gelir Kategorisi *
               </label>
 
               <select
-                id="category"
+                id="transactionCategory"
                 className="form-input"
                 value={categoryId}
                 onChange={(event) =>
@@ -1554,8 +1606,12 @@ function TransactionForm({
                 {transactionCategoryOptions.map(
                   (category) => (
                     <option
-                      key={category.id}
-                      value={category.id}
+                      key={
+                        category.id
+                      }
+                      value={
+                        category.id
+                      }
                     >
                       {category.pathNames.join(
                         " > ",
@@ -1564,18 +1620,28 @@ function TransactionForm({
                   ),
                 )}
               </select>
+
+              {transactionCategoryOptions.length ===
+                0 && (
+                <p className="form-error">
+                  Gelir kategorisi
+                  bulunmuyor. Önce gelir
+                  türünde bir kategori
+                  oluşturunuz.
+                </p>
+              )}
             </div>
 
             <div>
               <label
                 className="form-label"
-                htmlFor="amount"
+                htmlFor="transactionAmount"
               >
                 Gelir Tutarı *
               </label>
 
               <input
-                id="amount"
+                id="transactionAmount"
                 className="form-input"
                 type="number"
                 min="0.01"
@@ -1632,16 +1698,6 @@ function TransactionForm({
             setTransactionDiscount={
               setTransactionDiscount
             }
-            couponCode={couponCode}
-            setCouponCode={
-              setCouponCode
-            }
-            receiptTotal={
-              receiptTotal
-            }
-            setReceiptTotal={
-              setReceiptTotal
-            }
             expenseTotals={
               expenseTotals
             }
@@ -1649,6 +1705,12 @@ function TransactionForm({
               formatAmount
             }
           />
+        )}
+
+        {transactionFormError && (
+          <p className="form-error">
+            {transactionFormError}
+          </p>
         )}
 
         <button
@@ -1661,20 +1723,11 @@ function TransactionForm({
           }
         >
           {isSaving
-            ? "Kayıt Ekleniyor..."
+            ? "Kaydediliyor..."
             : "Finansal Kaydı Ekle"}
         </button>
       </form>
-
-      {transactionFormError && (
-        <p
-          className="form-error"
-          role="alert"
-        >
-          {transactionFormError}
-        </p>
-      )}
-    </>
+    </div>
   );
 }
 
