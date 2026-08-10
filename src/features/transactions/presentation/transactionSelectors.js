@@ -1,5 +1,9 @@
 import { createSelector } from "@reduxjs/toolkit";
 
+import { isDateInsideReportingPeriod } from "../../reporting/domain/reportingPeriodCalculations";
+
+import { selectActiveReportingPeriod } from "../../reporting/presentation/reportingSelectors";
+
 const selectTransactionState = (state) => state.transactions;
 
 // =====================================================
@@ -103,8 +107,58 @@ function allocateRefundToLines(transaction) {
 // Finansal özet selectorları
 // =====================================================
 
+// =====================================================
+// 11.GÜN - Aktif finansal döneme ait işlemler
+//
+// Kullanıcının seçtiği raporlama dönemine göre yalnızca
+// ilgili tarih aralığındaki gelir, gider ve iade kayıtları
+// finansal özet hesaplarına dahil edilir.
+//
+// Önemli:
+// İşlemlerin transactionDate değerleri değiştirilmez.
+// Sadece raporlamada hangi kayıtların kullanılacağı filtrelenir.
+// =====================================================
+
+export const selectTransactionsInActiveReportingPeriod = createSelector(
+  [selectTransactions, selectActiveReportingPeriod],
+
+  (transactions, activeReportingPeriod) => {
+    const startDate = activeReportingPeriod?.startDate ?? "";
+    const endDate = activeReportingPeriod?.endDate ?? "";
+
+    // 11.GÜN - Dönem henüz hesaplanamadıysa yanlış bir toplam
+    // göstermek yerine finansal özet için boş liste döndürülür.
+    if (!startDate || !endDate) {
+      return [];
+    }
+
+    return transactions.filter((transaction) => {
+      // 11.GÜN - Öncelikle kullanıcının gerçek işlem tarihi kullanılır.
+      // Eski kayıtlarda transactionDate yoksa createdAtUtc içinden
+      // yalnızca YYYY-MM-DD kısmı yedek tarih olarak alınır.
+      const transactionDate =
+        transaction.transactionDate ||
+        (typeof transaction.createdAtUtc === "string"
+          ? transaction.createdAtUtc.slice(0, 10)
+          : "");
+
+      return isDateInsideReportingPeriod({
+        dateValue: transactionDate,
+        startDate,
+        endDate,
+      });
+    });
+  },
+);
+
+// =====================================================
+// 11.GÜN
+// Toplam gelir artık bütün zamanların gelirini değil,
+// yalnızca aktif finansal dönem içindeki gelirleri toplar.
+// =====================================================
+
 export const selectTotalIncomeMinor = createSelector(
-  [selectTransactions],
+  [selectTransactionsInActiveReportingPeriod],
 
   (transactions) =>
     transactions
@@ -115,8 +169,13 @@ export const selectTotalIncomeMinor = createSelector(
       ),
 );
 
+// =====================================================
+// 11.GÜN
+// Brüt gider hesabı da aktif finansal döneme göre yapılır.
+// =====================================================
+
 export const selectGrossExpenseMinor = createSelector(
-  [selectTransactions],
+  [selectTransactionsInActiveReportingPeriod],
 
   (transactions) =>
     transactions
@@ -127,8 +186,14 @@ export const selectGrossExpenseMinor = createSelector(
       ),
 );
 
+// =====================================================
+// 11.GÜN
+// İade toplamında yalnızca aktif finansal döneme ait
+// iade kayıtları kullanılır.
+// =====================================================
+
 export const selectTotalRefundMinor = createSelector(
-  [selectTransactions],
+  [selectTransactionsInActiveReportingPeriod],
 
   (transactions) =>
     transactions
@@ -139,8 +204,14 @@ export const selectTotalRefundMinor = createSelector(
       ),
 );
 
+// =====================================================
+// 11.GÜN
+// Net gider, seçilen finansal dönem içindeki giderlerden
+// yapılmış iadeler düşülerek hesaplanır.
+// =====================================================
+
 export const selectNetExpenseMinor = createSelector(
-  [selectTransactions],
+  [selectTransactionsInActiveReportingPeriod],
 
   (transactions) =>
     transactions
@@ -150,6 +221,12 @@ export const selectNetExpenseMinor = createSelector(
         0,
       ),
 );
+
+// =====================================================
+// 11.GÜN
+// Net bakiye de aktif dönem gelirinden aktif dönem
+// giderinin çıkarılmasıyla oluşur.
+// =====================================================
 
 export const selectNetBalanceMinor = createSelector(
   [selectTotalIncomeMinor, selectNetExpenseMinor],

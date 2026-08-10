@@ -1,6 +1,4 @@
-import {
-  configureStore,
-} from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 
 import authReducer from "../features/auth/presentation/authSlice";
 import catalogReducer from "../features/catalog/presentation/catalogSlice";
@@ -10,35 +8,52 @@ import installmentReducer from "../features/installments/presentation/installmen
 import statementReducer from "../features/statements/presentation/statementSlice";
 import transactionReducer from "../features/transactions/presentation/transactionSlice";
 
+// =====================================================
+// 11.GÜN
+// Kullanıcının seçtiği finansal dönem ayarlarının
+// uygulama genelinde kullanılabilmesi için reporting
+// reducer Redux store içerisine eklendi.
+// =====================================================
+
+import reportingReducer from "../features/reporting/presentation/reportingSlice";
+
 // 1.GÜN - Uygulamanın Redux store yapısı oluşturuldu.
-export const store =
-  configureStore({
-    reducer: {
-      auth:
-        authReducer,
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
 
-      // 3.GÜN - Gelir ve gider kayıtları Redux store içerisine eklendi.
-      transactions:
-        transactionReducer,
+    // 3.GÜN - Gelir ve gider kayıtları Redux store içerisine eklendi.
+    transactions: transactionReducer,
 
-      // 5.GÜN - Sınırsız kategori ağacı Redux store içerisine eklendi.
-      categories:
-        categoryReducer,
+    // 5.GÜN - Sınırsız kategori ağacı Redux store içerisine eklendi.
+    categories: categoryReducer,
 
-      // 6.GÜN - Firma, şube, marka ve ürün katalog bilgileri Redux store içerisine eklendi.
-      catalog:
-        catalogReducer,
+    // 6.GÜN - Firma, şube, marka ve ürün katalog bilgileri Redux store içerisine eklendi.
+    catalog: catalogReducer,
 
-      // 9.GÜN - Kredi kartı kayıtları Redux store içerisine eklendi.
-      creditCards:
-        creditCardReducer,
+    // 9.GÜN - Kredi kartı kayıtları Redux store içerisine eklendi.
+    creditCards: creditCardReducer,
 
-      // 11.GÜN - Kredi kartı taksit planlarının ortak uygulama state içerisinde tutulması sağlandı.
-      installments:
-        installmentReducer,
+    // 11.GÜN - Kredi kartı taksit planlarının ortak uygulama state içerisinde tutulması sağlandı.
+    installments: installmentReducer,
 
-      // 11.GÜN - Kredi kartı ekstre dönemlerinin ortak Redux state içerisinde tutulması sağlandı.
-      statements:
-        statementReducer,
-    },
-  });
+    // 11.GÜN - Kredi kartı ekstre dönemlerinin ortak Redux state içerisinde tutulması sağlandı.
+    statements: statementReducer,
+
+    // =====================================================
+    // 11.GÜN
+    // Kullanıcının raporlama dönemi seçimi Redux store'a
+    // eklendi.
+    //
+    // Burada:
+    //
+    // - Takvim Ayı
+    // - Özel Finansal Ay
+    // - Kredi Kartı Dönemi
+    //
+    // seçimleri tutulacaktır.
+    // =====================================================
+
+    reporting: reportingReducer,
+  },
+});
