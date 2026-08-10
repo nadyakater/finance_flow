@@ -42,40 +42,15 @@ import {
   selectTotalInstallmentDebtMinor,
 } from "../features/installments/presentation/installmentSelectors";
 
-
-// =====================================================
-// 11.GÜN
-// Kredi kartı dönemine göre raporlama yapılabilmesi için
-// ekstre dönemleri ana sayfa açılırken yüklenir.
-//
-// Kredi kartı dönemi seçildiğinde cycleStart ve cycleEnd
-// bilgilerine ihtiyaç duyulduğu için bu veriler gereklidir.
-// =====================================================
-
 import {
   loadStatementPeriods,
 } from "../features/statements/application/statementThunks";
-
-
-// =====================================================
-// 11.GÜN
-// Kullanıcının daha önce kaydettiği finansal dönem
-// ayarlarını Firestore'dan yüklemek için thunk eklendi.
-// =====================================================
 
 import {
   loadReportingSettings,
 } from "../features/reporting/application/reportingThunks";
 
-
-// =====================================================
-// 11.GÜN
-// Kullanıcının finansal dönem seçimini yapabileceği
-// ayar bileşeni ana sayfaya bağlandı.
-// =====================================================
-
 import ReportingPeriodSettings from "../features/reporting/presentation/components/ReportingPeriodSettings";
-
 
 import {
   loadTransactions,
@@ -460,13 +435,6 @@ function Anasayfa({
       selectNetBalanceMinor,
     );
 
-
-  // =====================================================
-  // DÜZENLEME
-  // İçinde bulunduğumuz ay ve gelecek aylara ait
-  // taksitlerin toplamı finans özetinde borç olarak kullanılır.
-  // =====================================================
-
   const totalDebtMinor =
     useSelector(
       selectTotalInstallmentDebtMinor,
@@ -542,9 +510,11 @@ function Anasayfa({
 
   // =====================================================
   // 11.GÜN
-  // Kullanıcı giriş yaptığında finansal dönem hesaplaması
-  // için gereken veriler de diğer kullanıcı verileriyle
-  // birlikte yüklenir.
+  // Ana sayfada kullanılacak finansal veriler yüklenir.
+  //
+  // 3.17 kapsamındaki düzenli gider ve abonelik yönetimi
+  // Admin Paneli'ne taşındığı için recurring verileri
+  // burada yüklenmez.
   // =====================================================
 
   useEffect(
@@ -585,29 +555,11 @@ function Anasayfa({
         ),
       );
 
-
-      // =====================================================
-      // 11.GÜN
-      // Kredi kartı dönemi seçildiğinde aktif cycleStart ve
-      // cycleEnd değerlerinin bulunabilmesi için ekstre
-      // dönemleri yüklenir.
-      // =====================================================
-
       dispatch(
         loadStatementPeriods(
           currentUser.id,
         ),
       );
-
-
-      // =====================================================
-      // 11.GÜN
-      // Kullanıcının daha önce kaydettiği finansal dönem
-      // seçimi Firestore'dan yüklenir.
-      //
-      // Kullanıcı daha önce seçim yapmadıysa
-      // varsayılan olarak Takvim Ayı kullanılır.
-      // =====================================================
 
       dispatch(
         loadReportingSettings(
@@ -659,8 +611,6 @@ function Anasayfa({
   return (
     <div className="page-container dashboard-page-container">
       <div className="welcome-card transaction-card">
-        {/* 10.GÜN - Kullanıcı bilgileri ve sayfa işlemleri üst alanda birleştirildi. */}
-
         <div className="dashboard-header">
           <div className="dashboard-header-content">
             <h1 className="welcome-title">
@@ -678,8 +628,6 @@ function Anasayfa({
 
 
           <div className="dashboard-header-actions">
-            {/* 10.GÜN - Yönetim bölümlerine geçiş için Admin Paneli butonu eklendi. */}
-
             <button
               className="admin-button"
               type="button"
@@ -709,29 +657,9 @@ function Anasayfa({
 
 
         {/* =====================================================
-            11.GÜN - Finansal dönem ayarları
-
-            Kullanıcı burada Takvim Ayı, Özel Finansal Ay veya
-            Kredi Kartı Dönemi seçeneklerinden birini seçebilir.
-
-            Aktif dönem bilgisi ayrıca burada tekrar gösterilmez.
-            Finans Özeti içerisinde gösterildiği için ekran
-            daha sade hale getirildi.
-            ===================================================== */}
-
-        <ReportingPeriodSettings
-          currentUser={
-            currentUser
-          }
-        />
-
-
-        {/* =====================================================
             11.GÜN
-            Finans Özeti seçilen finansal döneme göre hesaplanır.
-
-            Aktif dönem adı ve tarih aralığı da FinanceSummary
-            bileşeni içerisinde gösterilir.
+            Finans Özeti ana sayfanın en üst bölümünde
+            gösterilmeye devam eder.
             ===================================================== */}
 
         <FinanceSummary
@@ -754,6 +682,29 @@ function Anasayfa({
             formatAmount
           }
         />
+
+
+        {/* =====================================================
+            11.GÜN
+            Finansal dönem ayarları Finans Özeti'nin
+            hemen altında tutulur.
+            ===================================================== */}
+
+        <ReportingPeriodSettings
+          currentUser={
+            currentUser
+          }
+        />
+
+
+        {/* =====================================================
+            11.GÜN
+            3.17 kapsamındaki Düzenli Giderler ve Abonelikler
+            bölümü Ana Sayfa'dan kaldırıldı.
+
+            Bu yönetim alanı artık Admin Paneli içerisinde
+            gösterilmektedir.
+            ===================================================== */}
 
 
         <TransactionForm
@@ -819,8 +770,6 @@ function Anasayfa({
           </div>
         )}
 
-
-        {/* 10.GÜN - Kategori filtresi kayıt listesinin bir parçası olarak korundu. */}
 
         <CategoryFilter
           selectedFilterCategoryIds={

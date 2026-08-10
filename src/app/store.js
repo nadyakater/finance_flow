@@ -7,17 +7,17 @@ import creditCardReducer from "../features/creditCards/presentation/creditCardSl
 import installmentReducer from "../features/installments/presentation/installmentSlice";
 import statementReducer from "../features/statements/presentation/statementSlice";
 import transactionReducer from "../features/transactions/presentation/transactionSlice";
+import reportingReducer from "../features/reporting/presentation/reportingSlice";
 
 // =====================================================
 // 11.GÜN
-// Kullanıcının seçtiği finansal dönem ayarlarının
-// uygulama genelinde kullanılabilmesi için reporting
-// reducer Redux store içerisine eklendi.
+// Düzenli giderler, faturalar ve aboneliklerin
+// uygulama genelinde Redux üzerinden yönetilebilmesi
+// için recurring reducer store içerisine eklendi.
 // =====================================================
 
-import reportingReducer from "../features/reporting/presentation/reportingSlice";
+import recurringReducer from "../features/recurring/presentation/recurringSlice";
 
-// 1.GÜN - Uygulamanın Redux store yapısı oluşturuldu.
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -34,26 +34,30 @@ export const store = configureStore({
     // 9.GÜN - Kredi kartı kayıtları Redux store içerisine eklendi.
     creditCards: creditCardReducer,
 
-    // 11.GÜN - Kredi kartı taksit planlarının ortak uygulama state içerisinde tutulması sağlandı.
+    // 11.GÜN - Kredi kartı taksit planları Redux store içerisinde tutulur.
     installments: installmentReducer,
 
-    // 11.GÜN - Kredi kartı ekstre dönemlerinin ortak Redux state içerisinde tutulması sağlandı.
+    // 11.GÜN - Kredi kartı ekstre dönemleri Redux store içerisinde tutulur.
     statements: statementReducer,
+
+    // 11.GÜN - Kullanıcının seçtiği finansal dönem ayarları Redux store içerisinde tutulur.
+    reporting: reportingReducer,
 
     // =====================================================
     // 11.GÜN
-    // Kullanıcının raporlama dönemi seçimi Redux store'a
-    // eklendi.
+    // Düzenli gider, abonelik ve forecast kayıtları
+    // Redux store içerisine eklendi.
     //
     // Burada:
     //
-    // - Takvim Ayı
-    // - Özel Finansal Ay
-    // - Kredi Kartı Dönemi
+    // - düzenli gider kuralları,
+    // - gelecek tahmini ödemeler,
+    // - ödenmiş forecast kayıtları,
+    // - tahmin / gerçek tutar bilgileri
     //
-    // seçimleri tutulacaktır.
+    // tutulacaktır.
     // =====================================================
 
-    reporting: reportingReducer,
+    recurring: recurringReducer,
   },
 });
