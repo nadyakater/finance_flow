@@ -17,6 +17,10 @@ import { loadCatalog } from "../features/catalog/application/catalogThunks";
 
 import { loadCreditCards } from "../features/creditCards/application/creditCardThunks";
 
+import { loadInstallmentPlans } from "../features/installments/application/installmentThunks";
+
+import { selectTotalInstallmentDebtMinor } from "../features/installments/presentation/installmentSelectors";
+
 import { loadTransactions } from "../features/transactions/application/transactionThunks";
 
 import {
@@ -197,6 +201,9 @@ function Anasayfa({ onNavigateAdmin }) {
 
   const netBalanceMinor = useSelector(selectNetBalanceMinor);
 
+  // DÜZENLEME - İçinde bulunduğumuz ay ve gelecek aylara ait taksitlerin toplamı finans özetinde borç olarak kullanılır.
+  const totalDebtMinor = useSelector(selectTotalInstallmentDebtMinor);
+
   const [selectedFilterCategoryIds, setSelectedFilterCategoryIds] = useState(
     [],
   );
@@ -244,6 +251,9 @@ function Anasayfa({ onNavigateAdmin }) {
     dispatch(loadCatalog(currentUser.id));
 
     dispatch(loadCreditCards(currentUser.id));
+
+    // DÜZENLEME - Finans özetindeki toplam borç hesabı için kullanıcının taksit planları ana sayfada yüklenir.
+    dispatch(loadInstallmentPlans(currentUser.id));
   }, [dispatch, currentUser?.id]);
 
   const handleLogout = async () => {
@@ -264,6 +274,7 @@ function Anasayfa({ onNavigateAdmin }) {
     <div className="page-container dashboard-page-container">
       <div className="welcome-card transaction-card">
         {/* 10.GÜN - Kullanıcı bilgileri ve sayfa işlemleri üst alanda birleştirildi. */}
+
         <div className="dashboard-header">
           <div className="dashboard-header-content">
             <h1 className="welcome-title">Hoş Geldiniz</h1>
@@ -277,6 +288,7 @@ function Anasayfa({ onNavigateAdmin }) {
 
           <div className="dashboard-header-actions">
             {/* 10.GÜN - Yönetim bölümlerine geçiş için Admin Paneli butonu eklendi. */}
+
             <button
               className="admin-button"
               type="button"
@@ -297,11 +309,13 @@ function Anasayfa({ onNavigateAdmin }) {
         </div>
 
         {/* 10.GÜN - Ana sayfa finans özeti, yeni kayıt ve kayıt listesi olacak şekilde sadeleştirildi. */}
+
         <FinanceSummary
           totalIncomeMinor={totalIncomeMinor}
           netExpenseMinor={netExpenseMinor}
           totalRefundMinor={totalRefundMinor}
           netBalanceMinor={netBalanceMinor}
+          totalDebtMinor={totalDebtMinor}
           formatAmount={formatAmount}
         />
 
@@ -342,6 +356,7 @@ function Anasayfa({ onNavigateAdmin }) {
         )}
 
         {/* 10.GÜN - Kategori filtresi kayıt listesinin bir parçası olarak korundu. */}
+
         <CategoryFilter
           selectedFilterCategoryIds={selectedFilterCategoryIds}
           setSelectedFilterCategoryIds={setSelectedFilterCategoryIds}

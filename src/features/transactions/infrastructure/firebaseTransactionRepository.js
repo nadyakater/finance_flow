@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -23,33 +22,49 @@ import {
   validateTransactionTotals,
 } from "../domain/transactionCalculations";
 
-// =====================================================
-// Firestore Timestamp değerlerini ISO tarih metnine
-// dönüştürür.
-// =====================================================
+import {
+  createInstallmentSchedule,
+} from "../domain/installmentCalculations";
 
-function convertTimestampToIsoString(timestampValue) {
+import {
+  calculateStatementPeriod,
+} from "../../creditCards/domain/statementCalculations";
+
+import {
+  prepareStatementPeriodWrite,
+  prepareStatementRefundWrite,
+  writeStatementPeriod,
+} from "../../statements/infrastructure/statementPeriodWriter";
+
+function convertTimestampToIsoString(
+  timestampValue,
+) {
   if (!timestampValue) {
     return "";
   }
 
-  if (typeof timestampValue.toDate === "function") {
-    return timestampValue.toDate().toISOString();
+  if (
+    typeof timestampValue.toDate ===
+    "function"
+  ) {
+    return timestampValue
+      .toDate()
+      .toISOString();
   }
 
-  if (typeof timestampValue === "string") {
+  if (
+    typeof timestampValue ===
+    "string"
+  ) {
     return timestampValue;
   }
 
   return "";
 }
 
-// =====================================================
-// Bütün finansal kayıtlarda kullanılacak ortak audit
-// alanlarını oluşturur.
-// =====================================================
-
-function createDefaultAuditFields(userId) {
+function createDefaultAuditFields(
+  userId,
+) {
   return {
     ownerId: userId,
 
@@ -64,190 +79,338 @@ function createDefaultAuditFields(userId) {
 }
 
 // =====================================================
-// Tek bir gider satırını kayıt için hazırlar.
+// 11.GÜN
+// Ekstre dönemi geçmişse closed, henüz gelmemişse
+// projected olarak gösterilmesi sağlandı.
 // =====================================================
 
-function prepareExpenseLine(line, index) {
-  if (!line.categoryId) {
-    throw new Error("TRANSACTION_LINE_CATEGORY_REQUIRED");
+function getCurrentStatementStatus(
+  cycleEnd,
+  savedStatus,
+) {
+  if (!cycleEnd) {
+    return savedStatus || "";
   }
 
-  const amountResult = calculateLineAmounts(line);
+  const today = new Date();
+
+  const todayValue = `${today.getFullYear()}-${String(
+    today.getMonth() + 1,
+  ).padStart(2, "0")}-${String(
+    today.getDate(),
+  ).padStart(2, "0")}`;
+
+  return todayValue > cycleEnd
+    ? "closed"
+    : "projected";
+}
+
+function prepareExpenseLine(
+  line,
+  index,
+) {
+  if (!line.categoryId) {
+    throw new Error(
+      "TRANSACTION_LINE_CATEGORY_REQUIRED",
+    );
+  }
+
+  const amountResult =
+    calculateLineAmounts(line);
 
   return {
-    id: line.id ?? `line-${index + 1}`,
+    id:
+      line.id ??
+      `line-${index + 1}`,
 
-    categoryId: line.categoryId,
+    categoryId:
+      line.categoryId,
 
-    category: line.category ?? "",
+    category:
+      line.category ?? "",
 
-    categoryPath: line.categoryPath ?? line.category ?? "",
+    categoryPath:
+      line.categoryPath ??
+      line.category ??
+      "",
 
-    categoryPathIds: Array.isArray(line.categoryPathIds)
-      ? line.categoryPathIds
-      : [],
+    categoryPathIds:
+      Array.isArray(
+        line.categoryPathIds,
+      )
+        ? line.categoryPathIds
+        : [],
 
-    categoryType: line.categoryType ?? "expense",
+    categoryType:
+      line.categoryType ??
+      "expense",
 
-    productId: line.productId ?? "",
+    productId:
+      line.productId ?? "",
 
-    productName: line.productName ?? "",
+    productName:
+      line.productName ?? "",
 
-    productType: line.productType === "fuel" ? "fuel" : "standard",
+    productType:
+      line.productType === "fuel"
+        ? "fuel"
+        : "standard",
 
-    fuelType: line.productType === "fuel" ? (line.fuelType ?? "other") : "",
+    fuelType:
+      line.productType === "fuel"
+        ? line.fuelType ?? "other"
+        : "",
 
-    liters: line.productType === "fuel" ? line.liters : "",
+    liters:
+      line.productType === "fuel"
+        ? line.liters
+        : "",
 
-    fuelUnitPrice: line.productType === "fuel" ? line.fuelUnitPrice : "",
+    fuelUnitPrice:
+      line.productType === "fuel"
+        ? line.fuelUnitPrice
+        : "",
 
     vehicleId:
-      line.productType === "fuel" ? (line.vehicleId?.trim() ?? "") : "",
+      line.productType === "fuel"
+        ? line.vehicleId?.trim() ??
+          ""
+        : "",
 
-    odometer: line.productType === "fuel" ? line.odometer : "",
+    odometer:
+      line.productType === "fuel"
+        ? line.odometer
+        : "",
 
-    brandId: line.brandId ?? "",
+    brandId:
+      line.brandId ?? "",
 
-    brandName: line.brandName ?? "",
+    brandName:
+      line.brandName ?? "",
 
-    purchaseQuantity: line.purchaseQuantity,
+    purchaseQuantity:
+      line.purchaseQuantity,
 
-    unitCount: line.unitCount,
+    unitCount:
+      line.unitCount,
 
-    unitSize: line.unitSize,
+    unitSize:
+      line.unitSize,
 
-    unitType: line.unitType ?? "adet",
+    unitType:
+      line.unitType ?? "adet",
 
-    unitPrice: line.unitPrice,
+    unitPrice:
+      line.unitPrice,
 
-    note: line.note?.trim() ?? "",
+    note:
+      line.note?.trim() ?? "",
 
     ...amountResult,
   };
 }
 
-// =====================================================
-// Gider işlemindeki bütün satırları hazırlar ve genel
-// indirimi satırlara dağıtır.
-// =====================================================
-
-function prepareExpenseLines(transaction) {
+function prepareExpenseLines(
+  transaction,
+) {
   const receivedLines =
-    Array.isArray(transaction.lines) && transaction.lines.length > 0
+    Array.isArray(
+      transaction.lines,
+    ) &&
+    transaction.lines.length > 0
       ? transaction.lines
       : [
           {
             id: "line-1",
 
-            categoryId: transaction.categoryId,
+            categoryId:
+              transaction.categoryId,
 
-            category: transaction.category,
+            category:
+              transaction.category,
 
-            categoryPath: transaction.categoryPath,
+            categoryPath:
+              transaction.categoryPath,
 
-            categoryPathIds: transaction.categoryPathIds,
+            categoryPathIds:
+              transaction.categoryPathIds,
 
-            categoryType: transaction.categoryType,
+            categoryType:
+              transaction.categoryType,
 
-            amount: transaction.amount,
+            amount:
+              transaction.amount,
 
             discount: 0,
           },
         ];
 
-  const preparedLines = receivedLines.map(prepareExpenseLine);
+  const preparedLines =
+    receivedLines.map(
+      prepareExpenseLine,
+    );
 
-  const transactionDiscountMinor = convertOptionalAmountToMinor(
-    transaction.transactionDiscount,
+  const transactionDiscountMinor =
+    convertOptionalAmountToMinor(
+      transaction.transactionDiscount,
+    );
+
+  return allocateTransactionDiscount(
+    preparedLines,
+    transactionDiscountMinor,
   );
-
-  return allocateTransactionDiscount(preparedLines, transactionDiscountMinor);
 }
 
-// =====================================================
-// Firestore'dan gelen tek bir işlem satırını uygulama
-// modeline dönüştürür.
-// =====================================================
+function mapTransactionLine(
+  line,
+  index,
+) {
+  const grossAmountMinor =
+    Number.isInteger(
+      line.grossAmountMinor,
+    )
+      ? line.grossAmountMinor
+      : Number.isInteger(
+            line.amountMinor,
+          )
+        ? line.amountMinor
+        : 0;
 
-function mapTransactionLine(line, index) {
-  const grossAmountMinor = Number.isInteger(line.grossAmountMinor)
-    ? line.grossAmountMinor
-    : Number.isInteger(line.amountMinor)
-      ? line.amountMinor
+  const lineDiscountMinor =
+    Number.isInteger(
+      line.lineDiscountMinor,
+    )
+      ? line.lineDiscountMinor
       : 0;
 
-  const lineDiscountMinor = Number.isInteger(line.lineDiscountMinor)
-    ? line.lineDiscountMinor
-    : 0;
+  const allocatedTransactionDiscountMinor =
+    Number.isInteger(
+      line.allocatedTransactionDiscountMinor,
+    )
+      ? line.allocatedTransactionDiscountMinor
+      : 0;
 
-  const allocatedTransactionDiscountMinor = Number.isInteger(
-    line.allocatedTransactionDiscountMinor,
-  )
-    ? line.allocatedTransactionDiscountMinor
-    : 0;
-
-  const netAmountMinor = Number.isInteger(line.netAmountMinor)
-    ? line.netAmountMinor
-    : grossAmountMinor - lineDiscountMinor - allocatedTransactionDiscountMinor;
+  const netAmountMinor =
+    Number.isInteger(
+      line.netAmountMinor,
+    )
+      ? line.netAmountMinor
+      : grossAmountMinor -
+        lineDiscountMinor -
+        allocatedTransactionDiscountMinor;
 
   return {
-    id: line.id ?? `line-${index + 1}`,
+    id:
+      line.id ??
+      `line-${index + 1}`,
 
-    categoryId: line.categoryId ?? "",
+    categoryId:
+      line.categoryId ?? "",
 
-    category: line.category ?? "",
+    category:
+      line.category ?? "",
 
-    categoryPath: line.categoryPath ?? line.category ?? "",
+    categoryPath:
+      line.categoryPath ??
+      line.category ??
+      "",
 
-    categoryPathIds: Array.isArray(line.categoryPathIds)
-      ? line.categoryPathIds
-      : [],
+    categoryPathIds:
+      Array.isArray(
+        line.categoryPathIds,
+      )
+        ? line.categoryPathIds
+        : [],
 
-    categoryType: line.categoryType ?? "expense",
+    categoryType:
+      line.categoryType ??
+      "expense",
 
-    productId: line.productId ?? "",
+    productId:
+      line.productId ?? "",
 
-    productName: line.productName ?? "",
+    productName:
+      line.productName ?? "",
 
-    productType: line.productType === "fuel" ? "fuel" : "standard",
+    productType:
+      line.productType === "fuel"
+        ? "fuel"
+        : "standard",
 
-    fuelType: line.fuelType ?? "",
+    fuelType:
+      line.fuelType ?? "",
 
-    liters: Number(line.liters ?? line.normalizedQuantity ?? 0),
+    liters:
+      Number(
+        line.liters ??
+          line.normalizedQuantity ??
+          0,
+      ),
 
-    fuelUnitPriceMinor: Number.isInteger(line.fuelUnitPriceMinor)
-      ? line.fuelUnitPriceMinor
-      : Number.isInteger(line.normalizedUnitPriceMinor)
-        ? line.normalizedUnitPriceMinor
+    fuelUnitPriceMinor:
+      Number.isInteger(
+        line.fuelUnitPriceMinor,
+      )
+        ? line.fuelUnitPriceMinor
+        : Number.isInteger(
+              line.normalizedUnitPriceMinor,
+            )
+          ? line.normalizedUnitPriceMinor
+          : 0,
+
+    vehicleId:
+      line.vehicleId ?? "",
+
+    odometer:
+      Number(
+        line.odometer ?? 0,
+      ),
+
+    brandId:
+      line.brandId ?? "",
+
+    brandName:
+      line.brandName ?? "",
+
+    purchaseQuantity:
+      Number(
+        line.purchaseQuantity ?? 0,
+      ),
+
+    unitCount:
+      Number(
+        line.unitCount ?? 0,
+      ),
+
+    unitSize:
+      Number(
+        line.unitSize ?? 0,
+      ),
+
+    unitType:
+      line.unitType ?? "",
+
+    normalizedQuantity:
+      Number(
+        line.normalizedQuantity ?? 0,
+      ),
+
+    normalizedUnit:
+      line.normalizedUnit ?? "",
+
+    unitPriceMinor:
+      Number.isInteger(
+        line.unitPriceMinor,
+      )
+        ? line.unitPriceMinor
         : 0,
 
-    vehicleId: line.vehicleId ?? "",
-
-    odometer: Number(line.odometer ?? 0),
-
-    brandId: line.brandId ?? "",
-
-    brandName: line.brandName ?? "",
-
-    purchaseQuantity: Number(line.purchaseQuantity ?? 0),
-
-    unitCount: Number(line.unitCount ?? 0),
-
-    unitSize: Number(line.unitSize ?? 0),
-
-    unitType: line.unitType ?? "",
-
-    normalizedQuantity: Number(line.normalizedQuantity ?? 0),
-
-    normalizedUnit: line.normalizedUnit ?? "",
-
-    unitPriceMinor: Number.isInteger(line.unitPriceMinor)
-      ? line.unitPriceMinor
-      : 0,
-
-    normalizedUnitPriceMinor: Number.isInteger(line.normalizedUnitPriceMinor)
-      ? line.normalizedUnitPriceMinor
-      : 0,
+    normalizedUnitPriceMinor:
+      Number.isInteger(
+        line.normalizedUnitPriceMinor,
+      )
+        ? line.normalizedUnitPriceMinor
+        : 0,
 
     grossAmountMinor,
 
@@ -257,211 +420,537 @@ function mapTransactionLine(line, index) {
 
     netAmountMinor,
 
-    refundedMinor: Number.isInteger(line.refundedMinor)
-      ? line.refundedMinor
-      : 0,
+    refundedMinor:
+      Number.isInteger(
+        line.refundedMinor,
+      )
+        ? line.refundedMinor
+        : 0,
 
-    refundStatus: line.refundStatus ?? "none",
+    refundStatus:
+      line.refundStatus ?? "none",
 
-    note: line.note ?? "",
+    note:
+      line.note ?? "",
 
-    amount: grossAmountMinor / 100,
+    amount:
+      grossAmountMinor / 100,
 
-    discount: lineDiscountMinor / 100,
+    discount:
+      lineDiscountMinor / 100,
   };
 }
 
-// =====================================================
-// Firestore işlem belgesini uygulamanın kullanacağı
-// transaction modeline dönüştürür.
-// =====================================================
+function mapTransactionDocument(
+  transactionDocument,
+) {
+  const data =
+    transactionDocument.data();
 
-function mapTransactionDocument(transactionDocument) {
-  const data = transactionDocument.data();
+  const lines =
+    Array.isArray(
+      data.lines,
+    )
+      ? data.lines.map(
+          mapTransactionLine,
+        )
+      : [];
 
-  const lines = Array.isArray(data.lines)
-    ? data.lines.map(mapTransactionLine)
-    : [];
+  const calculatedLinesTotalMinor =
+    lines.reduce(
+      (total, line) =>
+        total +
+        Number(
+          line.netAmountMinor ?? 0,
+        ),
+      0,
+    );
 
-  const calculatedLinesTotalMinor = lines.reduce(
-    (total, line) => total + Number(line.netAmountMinor ?? 0),
-    0,
-  );
-
-  const amountMinor = Number.isInteger(data.amountMinor)
-    ? data.amountMinor
-    : calculatedLinesTotalMinor;
+  const amountMinor =
+    Number.isInteger(
+      data.amountMinor,
+    )
+      ? data.amountMinor
+      : calculatedLinesTotalMinor;
 
   return {
-    id: transactionDocument.id,
+    id:
+      transactionDocument.id,
 
-    ownerId: data.ownerId ?? "",
+    ownerId:
+      data.ownerId ?? "",
 
-    transactionType: data.transactionType ?? "",
+    transactionType:
+      data.transactionType ?? "",
 
-    category: data.category ?? "",
+    category:
+      data.category ?? "",
 
-    categoryId: data.categoryId ?? "",
+    categoryId:
+      data.categoryId ?? "",
 
-    categoryPath: data.categoryPath ?? data.category ?? "",
+    categoryPath:
+      data.categoryPath ??
+      data.category ??
+      "",
 
-    categoryPathIds: Array.isArray(data.categoryPathIds)
-      ? data.categoryPathIds
-      : [],
+    categoryPathIds:
+      Array.isArray(
+        data.categoryPathIds,
+      )
+        ? data.categoryPathIds
+        : [],
 
-    categoryType: data.categoryType ?? "",
+    categoryType:
+      data.categoryType ?? "",
 
-    amount: amountMinor / 100,
+    amount:
+      amountMinor / 100,
 
     amountMinor,
 
     transactionMode:
-      data.transactionMode ?? (lines.length > 1 ? "multiLine" : "singleLine"),
+      data.transactionMode ??
+      (
+        lines.length > 1
+          ? "multiLine"
+          : "singleLine"
+      ),
 
     lines,
 
-    subtotalMinor: Number.isInteger(data.subtotalMinor)
-      ? data.subtotalMinor
-      : amountMinor,
+    subtotalMinor:
+      Number.isInteger(
+        data.subtotalMinor,
+      )
+        ? data.subtotalMinor
+        : amountMinor,
 
-    lineDiscountTotalMinor: Number.isInteger(data.lineDiscountTotalMinor)
-      ? data.lineDiscountTotalMinor
-      : 0,
+    lineDiscountTotalMinor:
+      Number.isInteger(
+        data.lineDiscountTotalMinor,
+      )
+        ? data.lineDiscountTotalMinor
+        : 0,
 
-    transactionDiscountMinor: Number.isInteger(data.transactionDiscountMinor)
-      ? data.transactionDiscountMinor
-      : 0,
+    transactionDiscountMinor:
+      Number.isInteger(
+        data.transactionDiscountMinor,
+      )
+        ? data.transactionDiscountMinor
+        : 0,
 
-    couponCode: data.couponCode ?? "",
+    couponCode:
+      data.couponCode ?? "",
 
-    description: data.description ?? "",
+    description:
+      data.description ?? "",
 
-    paymentMethod: data.paymentMethod ?? "",
+    paymentMethod:
+      data.paymentMethod ?? "",
 
-    transactionDate: data.transactionDate ?? "",
+    creditCardId:
+      data.creditCardId ?? "",
 
-    merchantId: data.merchantId ?? "",
+    creditCardName:
+      data.creditCardName ?? "",
 
-    merchantName: data.merchantName ?? "",
+    installmentType:
+      data.installmentType ?? "none",
 
-    branchId: data.branchId ?? "",
+    installmentCount:
+      Number(
+        data.installmentCount ?? 0,
+      ),
 
-    branchName: data.branchName ?? "",
+    installmentPlanId:
+      data.installmentPlanId ?? "",
 
-    originalTransactionId: data.originalTransactionId ?? "",
+    statementDate:
+      data.statementDate ?? "",
 
-    refundedMinor: Number.isInteger(data.refundedMinor)
-      ? data.refundedMinor
-      : 0,
+    postingDate:
+      data.postingDate ?? "",
 
-    refundStatus: data.refundStatus ?? "none",
+    statementEffectiveDate:
+      data.statementEffectiveDate ??
+      data.transactionDate ??
+      "",
 
-    refundReason: data.refundReason ?? "",
+    statementEstimated:
+      Boolean(
+        data.statementEstimated,
+      ),
 
-    refundedLines: Array.isArray(data.refundedLines) ? data.refundedLines : [],
+    statementCycleStart:
+      data.statementCycleStart ??
+      "",
 
-    createdAtUtc: convertTimestampToIsoString(data.createdAtUtc),
+    statementCycleEnd:
+      data.statementCycleEnd ??
+      data.statementDate ??
+      "",
 
-    updatedAtUtc: convertTimestampToIsoString(data.updatedAtUtc),
+    statementInclusionRule:
+      data.statementInclusionRule ??
+      "include-closing-day",
 
-    createdBy: data.createdBy ?? "",
+    statementStatus:
+      getCurrentStatementStatus(
+        data.statementCycleEnd ??
+          data.statementDate ??
+          "",
+        data.statementStatus,
+      ),
 
-    updatedBy: data.updatedBy ?? "",
+    dueDate:
+      data.dueDate ?? "",
 
-    isDeleted: Boolean(data.isDeleted),
+    isManualDueDate:
+      Boolean(
+        data.isManualDueDate,
+      ),
 
-    version: Number(data.version ?? 1),
+    transactionDate:
+      data.transactionDate ?? "",
+
+    merchantId:
+      data.merchantId ?? "",
+
+    merchantName:
+      data.merchantName ?? "",
+
+    branchId:
+      data.branchId ?? "",
+
+    branchName:
+      data.branchName ?? "",
+
+    originalTransactionId:
+      data.originalTransactionId ?? "",
+
+    refundedMinor:
+      Number.isInteger(
+        data.refundedMinor,
+      )
+        ? data.refundedMinor
+        : 0,
+
+    refundStatus:
+      data.refundStatus ?? "none",
+
+    refundReason:
+      data.refundReason ?? "",
+
+    refundedLines:
+      Array.isArray(
+        data.refundedLines,
+      )
+        ? data.refundedLines
+        : [],
+
+    createdAtUtc:
+      convertTimestampToIsoString(
+        data.createdAtUtc,
+      ),
+
+    updatedAtUtc:
+      convertTimestampToIsoString(
+        data.updatedAtUtc,
+      ),
+
+    createdBy:
+      data.createdBy ?? "",
+
+    updatedBy:
+      data.updatedBy ?? "",
+
+    isDeleted:
+      Boolean(
+        data.isDeleted,
+      ),
+
+    version:
+      Number(
+        data.version ?? 1,
+      ),
   };
 }
 
 // =====================================================
-// Yeni gelir veya gider kaydı oluşturur.
+// 11.GÜN
+// Kredi kartı giderinin tek çekim veya taksitli ödeme
+// bilgilerinin güvenli bir şekilde hazırlanması sağlandı.
 // =====================================================
 
-export async function createTransaction(userId, transaction) {
+function prepareInstallmentSettings(
+  transaction,
+) {
+  if (
+    transaction.paymentMethod !==
+    "Kredi Kartı"
+  ) {
+    return {
+      installmentType: "none",
+
+      installmentCount: 0,
+    };
+  }
+
+  const installmentType =
+    transaction.installmentType ===
+    "installment"
+      ? "installment"
+      : "single";
+
+  if (
+    installmentType ===
+    "single"
+  ) {
+    return {
+      installmentType: "single",
+
+      installmentCount: 1,
+    };
+  }
+
+  const installmentCount =
+    Number(
+      transaction.installmentCount,
+    );
+
+  if (
+    !Number.isInteger(
+      installmentCount,
+    ) ||
+    installmentCount < 2 ||
+    installmentCount > 36
+  ) {
+    throw new Error(
+      "TRANSACTION_INSTALLMENT_COUNT_INVALID",
+    );
+  }
+
+  return {
+    installmentType,
+
+    installmentCount,
+  };
+}
+
+export async function createTransaction(
+  userId,
+  transaction,
+) {
   if (!userId) {
-    throw new Error("TRANSACTION_USER_REQUIRED");
+    throw new Error(
+      "TRANSACTION_USER_REQUIRED",
+    );
   }
 
-  if (!transaction.transactionDate) {
-    throw new Error("TRANSACTION_DATE_REQUIRED");
+  if (
+    !transaction.transactionDate
+  ) {
+    throw new Error(
+      "TRANSACTION_DATE_REQUIRED",
+    );
   }
 
-  if (!transaction.paymentMethod) {
-    throw new Error("TRANSACTION_PAYMENT_METHOD_REQUIRED");
+  if (
+    !transaction.paymentMethod
+  ) {
+    throw new Error(
+      "TRANSACTION_PAYMENT_METHOD_REQUIRED",
+    );
   }
 
-  const isExpense = transaction.transactionType === "Gider";
+  const isExpense =
+    transaction.transactionType ===
+    "Gider";
 
   let transactionData;
 
   if (isExpense) {
-    const preparedLines = prepareExpenseLines(transaction);
+    const preparedLines =
+      prepareExpenseLines(
+        transaction,
+      );
 
-    const totals = calculateExpenseTotals(preparedLines);
+    const totals =
+      calculateExpenseTotals(
+        preparedLines,
+      );
 
-    if (totals.amountMinor <= 0) {
-      throw new Error("TRANSACTION_INVALID_AMOUNT");
+    if (
+      totals.amountMinor <= 0
+    ) {
+      throw new Error(
+        "TRANSACTION_INVALID_AMOUNT",
+      );
+    }
+
+    if (
+      transaction.paymentMethod ===
+        "Kredi Kartı" &&
+      !transaction.creditCardId
+    ) {
+      throw new Error(
+        "TRANSACTION_CREDIT_CARD_REQUIRED",
+      );
     }
 
     validateTransactionTotals({
-      lines: preparedLines,
+      lines:
+        preparedLines,
 
-      amountMinor: totals.amountMinor,
+      amountMinor:
+        totals.amountMinor,
     });
 
-    const firstLine = preparedLines[0];
+    const firstLine =
+      preparedLines[0];
 
-    const uniqueCategoryIds = new Set(
-      preparedLines.map((line) => line.categoryId),
-    );
+    const uniqueCategoryIds =
+      new Set(
+        preparedLines.map(
+          (line) =>
+            line.categoryId,
+        ),
+      );
 
-    const hasMultipleCategories = uniqueCategoryIds.size > 1;
+    const hasMultipleCategories =
+      uniqueCategoryIds.size >
+      1;
+
+    const installmentSettings =
+      prepareInstallmentSettings(
+        transaction,
+      );
 
     transactionData = {
-      ...createDefaultAuditFields(userId),
+      ...createDefaultAuditFields(
+        userId,
+      ),
 
-      transactionType: "Gider",
+      transactionType:
+        "Gider",
 
-      category: hasMultipleCategories ? "Çoklu Kategori" : firstLine.category,
+      category:
+        hasMultipleCategories
+          ? "Çoklu Kategori"
+          : firstLine.category,
 
-      categoryId: hasMultipleCategories ? "" : firstLine.categoryId,
+      categoryId:
+        hasMultipleCategories
+          ? ""
+          : firstLine.categoryId,
 
-      categoryPath: hasMultipleCategories
-        ? "Çoklu Kategori"
-        : firstLine.categoryPath,
+      categoryPath:
+        hasMultipleCategories
+          ? "Çoklu Kategori"
+          : firstLine.categoryPath,
 
-      categoryPathIds: hasMultipleCategories ? [] : firstLine.categoryPathIds,
+      categoryPathIds:
+        hasMultipleCategories
+          ? []
+          : firstLine.categoryPathIds,
 
-      categoryType: "expense",
+      categoryType:
+        "expense",
 
-      transactionMode: preparedLines.length > 1 ? "multiLine" : "singleLine",
+      transactionMode:
+        preparedLines.length > 1
+          ? "multiLine"
+          : "singleLine",
 
-      lines: preparedLines.map((line) => ({
-        ...line,
+      lines:
+        preparedLines.map(
+          (line) => ({
+            ...line,
 
-        refundedMinor: 0,
+            refundedMinor: 0,
 
-        refundStatus: "none",
-      })),
+            refundStatus:
+              "none",
+          }),
+        ),
 
       ...totals,
 
-      couponCode: transaction.couponCode?.trim() ?? "",
+      couponCode:
+        transaction.couponCode?.trim() ??
+        "",
 
-      description: transaction.description?.trim() ?? "",
+      description:
+        transaction.description?.trim() ??
+        "",
 
-      paymentMethod: transaction.paymentMethod,
+      paymentMethod:
+        transaction.paymentMethod,
 
-      transactionDate: transaction.transactionDate,
+      creditCardId:
+        transaction.paymentMethod ===
+        "Kredi Kartı"
+          ? transaction.creditCardId ??
+            ""
+          : "",
 
-      merchantId: transaction.merchantId ?? "",
+      creditCardName:
+        transaction.paymentMethod ===
+        "Kredi Kartı"
+          ? transaction.creditCardName ??
+            ""
+          : "",
 
-      merchantName: transaction.merchantName ?? "",
+      installmentType:
+        installmentSettings.installmentType,
 
-      branchId: transaction.branchId ?? "",
+      installmentCount:
+        installmentSettings.installmentCount,
 
-      branchName: transaction.branchName ?? "",
+      installmentPlanId: "",
+
+      statementDate: "",
+
+      postingDate:
+        transaction.postingDate ??
+        "",
+
+      statementEffectiveDate: "",
+
+      statementEstimated: false,
+
+      statementCycleStart: "",
+
+      statementCycleEnd: "",
+
+      statementInclusionRule:
+        "include-closing-day",
+
+      statementStatus: "",
+
+      dueDate: "",
+
+      isManualDueDate: false,
+
+      transactionDate:
+        transaction.transactionDate,
+
+      merchantId:
+        transaction.merchantId ??
+        "",
+
+      merchantName:
+        transaction.merchantName ??
+        "",
+
+      branchId:
+        transaction.branchId ??
+        "",
+
+      branchName:
+        transaction.branchName ??
+        "",
 
       refundedMinor: 0,
 
@@ -474,35 +963,56 @@ export async function createTransaction(userId, transaction) {
       refundedLines: [],
     };
   } else {
-    if (!transaction.categoryId) {
-      throw new Error("TRANSACTION_CATEGORY_REQUIRED");
+    if (
+      !transaction.categoryId
+    ) {
+      throw new Error(
+        "TRANSACTION_CATEGORY_REQUIRED",
+      );
     }
 
-    const amountMinor = convertAmountToMinor(transaction.amount);
+    const amountMinor =
+      convertAmountToMinor(
+        transaction.amount,
+      );
 
     transactionData = {
-      ...createDefaultAuditFields(userId),
+      ...createDefaultAuditFields(
+        userId,
+      ),
 
-      transactionType: "Gelir",
+      transactionType:
+        "Gelir",
 
-      category: transaction.category || "Genel Gelir",
+      category:
+        transaction.category ||
+        "Genel Gelir",
 
-      categoryId: transaction.categoryId,
+      categoryId:
+        transaction.categoryId,
 
       categoryPath:
-        transaction.categoryPath || transaction.category || "Genel Gelir",
+        transaction.categoryPath ||
+        transaction.category ||
+        "Genel Gelir",
 
-      categoryPathIds: Array.isArray(transaction.categoryPathIds)
-        ? transaction.categoryPathIds
-        : [],
+      categoryPathIds:
+        Array.isArray(
+          transaction.categoryPathIds,
+        )
+          ? transaction.categoryPathIds
+          : [],
 
-      categoryType: "income",
+      categoryType:
+        "income",
 
-      transactionMode: "singleLine",
+      transactionMode:
+        "singleLine",
 
       lines: [],
 
-      subtotalMinor: amountMinor,
+      subtotalMinor:
+        amountMinor,
 
       lineDiscountTotalMinor: 0,
 
@@ -512,11 +1022,45 @@ export async function createTransaction(userId, transaction) {
 
       couponCode: "",
 
-      description: transaction.description?.trim() ?? "",
+      description:
+        transaction.description?.trim() ??
+        "",
 
-      paymentMethod: transaction.paymentMethod,
+      paymentMethod:
+        transaction.paymentMethod,
 
-      transactionDate: transaction.transactionDate,
+      creditCardId: "",
+
+      creditCardName: "",
+
+      installmentType: "none",
+
+      installmentCount: 0,
+
+      installmentPlanId: "",
+
+      statementDate: "",
+
+      postingDate: "",
+
+      statementEffectiveDate: "",
+
+      statementEstimated: false,
+
+      statementCycleStart: "",
+
+      statementCycleEnd: "",
+
+      statementInclusionRule: "",
+
+      statementStatus: "",
+
+      dueDate: "",
+
+      isManualDueDate: false,
+
+      transactionDate:
+        transaction.transactionDate,
 
       merchantId: "",
 
@@ -538,304 +1082,944 @@ export async function createTransaction(userId, transaction) {
     };
   }
 
-  const transactionReference = await addDoc(
-    collection(db, "users", userId, "transactions"),
-    {
-      ...transactionData,
+  const transactionReference =
+    doc(
+      collection(
+        db,
+        "users",
+        userId,
+        "transactions",
+      ),
+    );
 
-      createdAtUtc: serverTimestamp(),
+  const isCreditCardExpense =
+    transactionData.transactionType ===
+      "Gider" &&
+    transactionData.paymentMethod ===
+      "Kredi Kartı";
 
-      updatedAtUtc: serverTimestamp(),
+  const isInstallmentExpense =
+    isCreditCardExpense &&
+    transactionData.installmentType ===
+      "installment";
+
+  const installmentPlanReference =
+    isInstallmentExpense
+      ? doc(
+          collection(
+            db,
+            "users",
+            userId,
+            "installmentPlans",
+          ),
+        )
+      : null;
+
+  // =====================================================
+  // 11.GÜN
+  // Kredi kartı gideri, taksit planı ve ekstre dönemi
+  // aynı Firestore transaction içerisinde kaydedilir.
+  // =====================================================
+
+  await runTransaction(
+    db,
+    async (
+      firestoreTransaction,
+    ) => {
+      let statementDate = "";
+
+      let statementPeriod = null;
+
+      let installmentSchedule = [];
+
+      const statementWrites = [];
+
+      if (
+        isCreditCardExpense
+      ) {
+        const creditCardReference =
+          doc(
+            db,
+            "users",
+            userId,
+            "creditCards",
+            transactionData.creditCardId,
+          );
+
+        const creditCardSnapshot =
+          await firestoreTransaction.get(
+            creditCardReference,
+          );
+
+        if (
+          !creditCardSnapshot.exists()
+        ) {
+          throw new Error(
+            "TRANSACTION_CREDIT_CARD_REQUIRED",
+          );
+        }
+
+        const creditCardData =
+          creditCardSnapshot.data();
+
+        if (
+          creditCardData.isDeleted ||
+          creditCardData.isActive ===
+            false
+        ) {
+          throw new Error(
+            "TRANSACTION_CREDIT_CARD_REQUIRED",
+          );
+        }
+
+        const statementDay =
+          creditCardData.statementDay ??
+          31;
+
+        const dueDay =
+          creditCardData.dueDay ??
+          10;
+
+        statementPeriod =
+          calculateStatementPeriod({
+            transactionDate:
+              transactionData.transactionDate,
+
+            postingDate:
+              transactionData.postingDate,
+
+            statementDay,
+
+            dueDay,
+
+            manualDueDate:
+              transaction.manualDueDate ??
+              "",
+
+            inclusionRule:
+              "include-closing-day",
+          });
+
+        statementDate =
+          statementPeriod.cycleEnd;
+
+        if (
+          isInstallmentExpense
+        ) {
+          installmentSchedule =
+            createInstallmentSchedule({
+              totalAmountMinor:
+                transactionData.amountMinor,
+
+              installmentCount:
+                transactionData.installmentCount,
+
+              transactionDate:
+                transactionData.transactionDate,
+
+              statementDay,
+            });
+
+          // =====================================================
+          // 11.GÜN
+          // Taksitli harcamada her taksit kendi ayının
+          // ekstre dönemine ayrı ayrı eklenir.
+          // =====================================================
+
+          for (
+            const installment
+            of installmentSchedule
+          ) {
+            const installmentStatementPeriod =
+              calculateStatementPeriod({
+                transactionDate:
+                  installment.statementDate,
+
+                postingDate: "",
+
+                statementDay,
+
+                dueDay,
+
+                inclusionRule:
+                  "include-closing-day",
+              });
+
+            const statementWrite =
+              await prepareStatementPeriodWrite({
+                firestoreTransaction,
+
+                userId,
+
+                creditCardId:
+                  transactionData.creditCardId,
+
+                creditCardName:
+                  transactionData.creditCardName,
+
+                statementPeriod:
+                  installmentStatementPeriod,
+
+                oneTimePurchasesMinor:
+                  0,
+
+                dueInstallmentsMinor:
+                  installment.amountMinor,
+              });
+
+            statementWrites.push(
+              statementWrite,
+            );
+          }
+        } else {
+          // 11.GÜN - Tek çekim kredi kartı gideri ilgili ekstre döneminin toplamına eklenir.
+          const statementWrite =
+            await prepareStatementPeriodWrite({
+              firestoreTransaction,
+
+              userId,
+
+              creditCardId:
+                transactionData.creditCardId,
+
+              creditCardName:
+                transactionData.creditCardName,
+
+              statementPeriod,
+
+              oneTimePurchasesMinor:
+                transactionData.amountMinor,
+
+              dueInstallmentsMinor:
+                0,
+            });
+
+          statementWrites.push(
+            statementWrite,
+          );
+        }
+      }
+
+      const finalTransactionData = {
+        ...transactionData,
+
+        statementDate,
+
+        statementEffectiveDate:
+          statementPeriod?.effectiveDate ??
+          "",
+
+        statementEstimated:
+          statementPeriod?.estimated ??
+          false,
+
+        statementCycleStart:
+          statementPeriod?.cycleStart ??
+          "",
+
+        statementCycleEnd:
+          statementPeriod?.cycleEnd ??
+          "",
+
+        statementInclusionRule:
+          statementPeriod?.inclusionRule ??
+          "",
+
+        statementStatus:
+          statementPeriod?.status ??
+          "",
+
+        dueDate:
+          statementPeriod?.dueDate ??
+          "",
+
+        isManualDueDate:
+          statementPeriod?.isManualDueDate ??
+          false,
+
+        installmentPlanId:
+          installmentPlanReference?.id ??
+          "",
+
+        createdAtUtc:
+          serverTimestamp(),
+
+        updatedAtUtc:
+          serverTimestamp(),
+      };
+
+      firestoreTransaction.set(
+        transactionReference,
+        finalTransactionData,
+      );
+
+      if (
+        installmentPlanReference
+      ) {
+        firestoreTransaction.set(
+          installmentPlanReference,
+          {
+            ...createDefaultAuditFields(
+              userId,
+            ),
+
+            sourceTransactionId:
+              transactionReference.id,
+
+            creditCardId:
+              transactionData.creditCardId,
+
+            creditCardName:
+              transactionData.creditCardName,
+
+            totalAmountMinor:
+              transactionData.amountMinor,
+
+            installmentCount:
+              transactionData.installmentCount,
+
+            firstStatementDate:
+              statementDate,
+
+            transactionDate:
+              transactionData.transactionDate,
+
+            installments:
+              installmentSchedule,
+
+            createdAtUtc:
+              serverTimestamp(),
+
+            updatedAtUtc:
+              serverTimestamp(),
+          },
+        );
+      }
+
+      // 11.GÜN - Hazırlanan ekstre dönemleri aynı atomik işlem içerisinde Firestore'a yazılır.
+      statementWrites.forEach(
+        (
+          statementWrite,
+        ) => {
+          writeStatementPeriod({
+            firestoreTransaction,
+
+            statementReference:
+              statementWrite.statementReference,
+
+            finalData:
+              statementWrite.finalData,
+          });
+        },
+      );
     },
   );
 
-  const transactionSnapshot = await getDoc(transactionReference);
+  const transactionSnapshot =
+    await getDoc(
+      transactionReference,
+    );
 
-  return mapTransactionDocument(transactionSnapshot);
+  return mapTransactionDocument(
+    transactionSnapshot,
+  );
 }
 
-// =====================================================
-// İade edilecek satırları hazırlar.
-// =====================================================
-
-function prepareRefundLines(originalLines, requestedRefundLines) {
+function prepareRefundLines(
+  originalLines,
+  requestedRefundLines,
+) {
   if (
-    !Array.isArray(requestedRefundLines) ||
-    requestedRefundLines.length === 0
+    !Array.isArray(
+      requestedRefundLines,
+    ) ||
+    requestedRefundLines.length ===
+      0
   ) {
     return [];
   }
 
-  return requestedRefundLines.map((requestedLine) => {
-    const originalLine = originalLines.find(
-      (line) => line.id === requestedLine.lineId,
-    );
-
-    if (!originalLine) {
-      throw new Error("TRANSACTION_REFUND_LINE_INVALID");
-    }
-
-    const refundAmountMinor = convertAmountToMinor(requestedLine.amount);
-
-    const currentLineRefundedMinor = Number(originalLine.refundedMinor ?? 0);
-
-    const remainingLineMinor =
-      Number(originalLine.netAmountMinor ?? 0) - currentLineRefundedMinor;
-
-    if (refundAmountMinor > remainingLineMinor) {
-      throw new Error("TRANSACTION_REFUND_EXCEEDS_REMAINING");
-    }
-
-    return {
-      lineId: originalLine.id,
-
-      productId: originalLine.productId ?? "",
-
-      productName: originalLine.productName ?? "",
-
-      categoryId: originalLine.categoryId ?? "",
-
-      category: originalLine.category ?? "",
-
-      amountMinor: refundAmountMinor,
-    };
-  });
-}
-
-// =====================================================
-// Tam veya kısmi iade oluşturur.
-// Orijinal gider ile iade kaydı aynı transaction içinde
-// güncellenir.
-// =====================================================
-
-export async function createRefundTransaction(userId, refund) {
-  if (!refund.originalTransactionId) {
-    throw new Error("REFUND_ORIGINAL_REQUIRED");
-  }
-
-  const originalTransactionReference = doc(
-    db,
-    "users",
-    userId,
-    "transactions",
-    refund.originalTransactionId,
-  );
-
-  const refundTransactionReference = doc(
-    collection(db, "users", userId, "transactions"),
-  );
-
-  await runTransaction(db, async (firestoreTransaction) => {
-    const originalSnapshot = await firestoreTransaction.get(
-      originalTransactionReference,
-    );
-
-    if (!originalSnapshot.exists()) {
-      throw new Error("REFUND_ORIGINAL_NOT_FOUND");
-    }
-
-    const originalData = originalSnapshot.data();
-
-    if (originalData.transactionType !== "Gider") {
-      throw new Error("REFUND_ONLY_EXPENSE");
-    }
-
-    if (originalData.isDeleted) {
-      throw new Error("REFUND_ORIGINAL_NOT_FOUND");
-    }
-
-    const originalLines = Array.isArray(originalData.lines)
-      ? originalData.lines
-      : [];
-
-    const preparedRefundLines = prepareRefundLines(
-      originalLines,
-      refund.refundedLines,
-    );
-
-    const refundAmountMinor =
-      preparedRefundLines.length > 0
-        ? preparedRefundLines.reduce(
-            (total, line) => total + line.amountMinor,
-            0,
-          )
-        : convertAmountToMinor(refund.amount);
-
-    const originalAmountMinor = Number(originalData.amountMinor ?? 0);
-
-    const currentRefundedMinor = Number(originalData.refundedMinor ?? 0);
-
-    const remainingRefundableMinor = originalAmountMinor - currentRefundedMinor;
-
-    if (
-      refundAmountMinor <= 0 ||
-      refundAmountMinor > remainingRefundableMinor
-    ) {
-      throw new Error("REFUND_AMOUNT_EXCEEDED");
-    }
-
-    const newRefundedMinor = currentRefundedMinor + refundAmountMinor;
-
-    const newRefundStatus = calculateRefundStatus(
-      originalAmountMinor,
-      newRefundedMinor,
-    );
-
-    let updatedOriginalLines = originalLines;
-
-    if (preparedRefundLines.length > 0) {
-      updatedOriginalLines = originalLines.map((originalLine) => {
-        const relatedRefundLine = preparedRefundLines.find(
-          (refundLine) => refundLine.lineId === originalLine.id,
+  return requestedRefundLines.map(
+    (
+      requestedLine,
+    ) => {
+      const originalLine =
+        originalLines.find(
+          (line) =>
+            line.id ===
+            requestedLine.lineId,
         );
 
-        if (!relatedRefundLine) {
-          return originalLine;
-        }
+      if (!originalLine) {
+        throw new Error(
+          "TRANSACTION_REFUND_LINE_INVALID",
+        );
+      }
 
-        const newLineRefundedMinor =
-          Number(originalLine.refundedMinor ?? 0) +
-          relatedRefundLine.amountMinor;
+      const refundAmountMinor =
+        convertAmountToMinor(
+          requestedLine.amount,
+        );
 
-        return {
-          ...originalLine,
+      const currentLineRefundedMinor =
+        Number(
+          originalLine.refundedMinor ??
+            0,
+        );
 
-          refundedMinor: newLineRefundedMinor,
+      const remainingLineMinor =
+        Number(
+          originalLine.netAmountMinor ??
+            0,
+        ) -
+        currentLineRefundedMinor;
 
-          refundStatus: calculateRefundStatus(
-            Number(originalLine.netAmountMinor ?? 0),
-            newLineRefundedMinor,
-          ),
-        };
-      });
-    }
+      if (
+        refundAmountMinor >
+        remainingLineMinor
+      ) {
+        throw new Error(
+          "TRANSACTION_REFUND_EXCEEDS_REMAINING",
+        );
+      }
 
-    firestoreTransaction.update(originalTransactionReference, {
-      refundedMinor: newRefundedMinor,
+      return {
+        lineId:
+          originalLine.id,
 
-      refundStatus: newRefundStatus,
+        productId:
+          originalLine.productId ??
+          "",
 
-      lines: updatedOriginalLines,
+        productName:
+          originalLine.productName ??
+          "",
 
-      updatedBy: userId,
+        categoryId:
+          originalLine.categoryId ??
+          "",
 
-      updatedAtUtc: serverTimestamp(),
+        category:
+          originalLine.category ??
+          "",
 
-      version: Number(originalData.version ?? 1) + 1,
-    });
-
-    firestoreTransaction.set(refundTransactionReference, {
-      ...createDefaultAuditFields(userId),
-
-      transactionType: "İade",
-
-      originalTransactionId: originalSnapshot.id,
-
-      category: originalData.category ?? "",
-
-      categoryId: originalData.categoryId ?? "",
-
-      categoryPath: originalData.categoryPath ?? "",
-
-      categoryPathIds: Array.isArray(originalData.categoryPathIds)
-        ? originalData.categoryPathIds
-        : [],
-
-      categoryType: "expense",
-
-      amountMinor: refundAmountMinor,
-
-      subtotalMinor: refundAmountMinor,
-
-      transactionMode:
-        preparedRefundLines.length > 1 ? "multiLine" : "singleLine",
-
-      lines: [],
-
-      lineDiscountTotalMinor: 0,
-
-      transactionDiscountMinor: 0,
-
-      couponCode: "",
-
-      description: "",
-
-      paymentMethod: refund.paymentMethod ?? originalData.paymentMethod ?? "",
-
-      transactionDate: refund.transactionDate ?? "",
-
-      merchantId: originalData.merchantId ?? "",
-
-      merchantName: originalData.merchantName ?? "",
-
-      branchId: originalData.branchId ?? "",
-
-      branchName: originalData.branchName ?? "",
-
-      refundedMinor: 0,
-
-      refundStatus: "none",
-
-      refundReason: refund.reason?.trim() ?? "",
-
-      refundedLines: preparedRefundLines,
-
-      createdAtUtc: serverTimestamp(),
-
-      updatedAtUtc: serverTimestamp(),
-    });
-  });
-
-  const refundSnapshot = await getDoc(refundTransactionReference);
-
-  return mapTransactionDocument(refundSnapshot);
+        amountMinor:
+          refundAmountMinor,
+      };
+    },
+  );
 }
 
-// =====================================================
-// Finansal kayıtları kalıcı olarak silmek yerine
-// soft-delete yöntemiyle arşivler.
-// =====================================================
-
-export async function archiveTransaction(userId, transactionId) {
-  const transactionReference = doc(
-    db,
-    "users",
-    userId,
-    "transactions",
-    transactionId,
-  );
-
-  const transactionSnapshot = await getDoc(transactionReference);
-
-  if (!transactionSnapshot.exists()) {
-    throw new Error("TRANSACTION_NOT_FOUND");
+export async function createRefundTransaction(
+  userId,
+  refund,
+) {
+  if (
+    !refund.originalTransactionId
+  ) {
+    throw new Error(
+      "REFUND_ORIGINAL_REQUIRED",
+    );
   }
 
-  const transactionData = transactionSnapshot.data();
+  const originalTransactionReference =
+    doc(
+      db,
+      "users",
+      userId,
+      "transactions",
+      refund.originalTransactionId,
+    );
 
-  await updateDoc(transactionReference, {
-    isDeleted: true,
+  const refundTransactionReference =
+    doc(
+      collection(
+        db,
+        "users",
+        userId,
+        "transactions",
+      ),
+    );
 
-    updatedBy: userId,
+  await runTransaction(
+    db,
+    async (
+      firestoreTransaction,
+    ) => {
+      const originalSnapshot =
+        await firestoreTransaction.get(
+          originalTransactionReference,
+        );
 
-    updatedAtUtc: serverTimestamp(),
+      if (
+        !originalSnapshot.exists()
+      ) {
+        throw new Error(
+          "REFUND_ORIGINAL_NOT_FOUND",
+        );
+      }
 
-    version: Number(transactionData.version ?? 1) + 1,
-  });
+      const originalData =
+        originalSnapshot.data();
+
+      if (
+        originalData.transactionType !==
+        "Gider"
+      ) {
+        throw new Error(
+          "REFUND_ONLY_EXPENSE",
+        );
+      }
+
+      if (
+        originalData.isDeleted
+      ) {
+        throw new Error(
+          "REFUND_ORIGINAL_NOT_FOUND",
+        );
+      }
+
+      const originalLines =
+        Array.isArray(
+          originalData.lines,
+        )
+          ? originalData.lines
+          : [];
+
+      const preparedRefundLines =
+        prepareRefundLines(
+          originalLines,
+          refund.refundedLines,
+        );
+
+      const refundAmountMinor =
+        preparedRefundLines.length >
+        0
+          ? preparedRefundLines.reduce(
+              (
+                total,
+                line,
+              ) =>
+                total +
+                line.amountMinor,
+              0,
+            )
+          : convertAmountToMinor(
+              refund.amount,
+            );
+
+      const originalAmountMinor =
+        Number(
+          originalData.amountMinor ??
+            0,
+        );
+
+      const currentRefundedMinor =
+        Number(
+          originalData.refundedMinor ??
+            0,
+        );
+
+      const remainingRefundableMinor =
+        originalAmountMinor -
+        currentRefundedMinor;
+
+      if (
+        refundAmountMinor <= 0 ||
+        refundAmountMinor >
+          remainingRefundableMinor
+      ) {
+        throw new Error(
+          "REFUND_AMOUNT_EXCEEDED",
+        );
+      }
+
+      const newRefundedMinor =
+        currentRefundedMinor +
+        refundAmountMinor;
+
+      const newRefundStatus =
+        calculateRefundStatus(
+          originalAmountMinor,
+          newRefundedMinor,
+        );
+
+      let updatedOriginalLines =
+        originalLines;
+
+      if (
+        preparedRefundLines.length >
+        0
+      ) {
+        updatedOriginalLines =
+          originalLines.map(
+            (
+              originalLine,
+            ) => {
+              const relatedRefundLine =
+                preparedRefundLines.find(
+                  (
+                    refundLine,
+                  ) =>
+                    refundLine.lineId ===
+                    originalLine.id,
+                );
+
+              if (
+                !relatedRefundLine
+              ) {
+                return originalLine;
+              }
+
+              const newLineRefundedMinor =
+                Number(
+                  originalLine.refundedMinor ??
+                    0,
+                ) +
+                relatedRefundLine.amountMinor;
+
+              return {
+                ...originalLine,
+
+                refundedMinor:
+                  newLineRefundedMinor,
+
+                refundStatus:
+                  calculateRefundStatus(
+                    Number(
+                      originalLine.netAmountMinor ??
+                        0,
+                    ),
+                    newLineRefundedMinor,
+                  ),
+              };
+            },
+          );
+      }
+
+      let statementRefundWrite =
+        null;
+
+      // =====================================================
+      // 11.GÜN
+      // Kredi kartı iadesinde ilgili ekstre kaydı bulunursa
+      // iade tutarı ekstre toplamından düşürülür.
+      // =====================================================
+
+      if (
+        originalData.paymentMethod ===
+          "Kredi Kartı" &&
+        originalData.creditCardId &&
+        originalData.statementCycleEnd
+      ) {
+        statementRefundWrite =
+          await prepareStatementRefundWrite({
+            firestoreTransaction,
+
+            userId,
+
+            creditCardId:
+              originalData.creditCardId,
+
+            cycleEnd:
+              originalData.statementCycleEnd,
+
+            refundAmountMinor,
+          });
+      }
+
+      firestoreTransaction.update(
+        originalTransactionReference,
+        {
+          refundedMinor:
+            newRefundedMinor,
+
+          refundStatus:
+            newRefundStatus,
+
+          lines:
+            updatedOriginalLines,
+
+          updatedBy:
+            userId,
+
+          updatedAtUtc:
+            serverTimestamp(),
+
+          version:
+            Number(
+              originalData.version ??
+                1,
+            ) + 1,
+        },
+      );
+
+      firestoreTransaction.set(
+        refundTransactionReference,
+        {
+          ...createDefaultAuditFields(
+            userId,
+          ),
+
+          transactionType:
+            "İade",
+
+          originalTransactionId:
+            originalSnapshot.id,
+
+          category:
+            originalData.category ??
+            "",
+
+          categoryId:
+            originalData.categoryId ??
+            "",
+
+          categoryPath:
+            originalData.categoryPath ??
+            "",
+
+          categoryPathIds:
+            Array.isArray(
+              originalData.categoryPathIds,
+            )
+              ? originalData.categoryPathIds
+              : [],
+
+          categoryType:
+            "expense",
+
+          amountMinor:
+            refundAmountMinor,
+
+          subtotalMinor:
+            refundAmountMinor,
+
+          transactionMode:
+            preparedRefundLines.length >
+            1
+              ? "multiLine"
+              : "singleLine",
+
+          lines: [],
+
+          lineDiscountTotalMinor: 0,
+
+          transactionDiscountMinor: 0,
+
+          couponCode: "",
+
+          description: "",
+
+          paymentMethod:
+            refund.paymentMethod ??
+            originalData.paymentMethod ??
+            "",
+
+          creditCardId:
+            originalData.creditCardId ??
+            "",
+
+          creditCardName:
+            originalData.creditCardName ??
+            "",
+
+          installmentType:
+            "none",
+
+          installmentCount: 0,
+
+          installmentPlanId: "",
+
+          statementDate:
+            originalData.statementDate ??
+            "",
+
+          postingDate:
+            originalData.postingDate ??
+            "",
+
+          statementEffectiveDate:
+            originalData.statementEffectiveDate ??
+            "",
+
+          statementEstimated:
+            Boolean(
+              originalData.statementEstimated,
+            ),
+
+          statementCycleStart:
+            originalData.statementCycleStart ??
+            "",
+
+          statementCycleEnd:
+            originalData.statementCycleEnd ??
+            "",
+
+          statementInclusionRule:
+            originalData.statementInclusionRule ??
+            "",
+
+          statementStatus:
+            originalData.statementStatus ??
+            "",
+
+          dueDate:
+            originalData.dueDate ??
+            "",
+
+          isManualDueDate:
+            Boolean(
+              originalData.isManualDueDate,
+            ),
+
+          transactionDate:
+            refund.transactionDate ??
+            "",
+
+          merchantId:
+            originalData.merchantId ??
+            "",
+
+          merchantName:
+            originalData.merchantName ??
+            "",
+
+          branchId:
+            originalData.branchId ??
+            "",
+
+          branchName:
+            originalData.branchName ??
+            "",
+
+          refundedMinor: 0,
+
+          refundStatus:
+            "none",
+
+          refundReason:
+            refund.reason?.trim() ??
+            "",
+
+          refundedLines:
+            preparedRefundLines,
+
+          createdAtUtc:
+            serverTimestamp(),
+
+          updatedAtUtc:
+            serverTimestamp(),
+        },
+      );
+
+      if (
+        statementRefundWrite
+      ) {
+        writeStatementPeriod({
+          firestoreTransaction,
+
+          statementReference:
+            statementRefundWrite.statementReference,
+
+          finalData:
+            statementRefundWrite.finalData,
+        });
+      }
+    },
+  );
+
+  const refundSnapshot =
+    await getDoc(
+      refundTransactionReference,
+    );
+
+  return mapTransactionDocument(
+    refundSnapshot,
+  );
+}
+
+export async function archiveTransaction(
+  userId,
+  transactionId,
+) {
+  const transactionReference =
+    doc(
+      db,
+      "users",
+      userId,
+      "transactions",
+      transactionId,
+    );
+
+  const transactionSnapshot =
+    await getDoc(
+      transactionReference,
+    );
+
+  if (
+    !transactionSnapshot.exists()
+  ) {
+    throw new Error(
+      "TRANSACTION_NOT_FOUND",
+    );
+  }
+
+  const transactionData =
+    transactionSnapshot.data();
+
+  await updateDoc(
+    transactionReference,
+    {
+      isDeleted: true,
+
+      updatedBy:
+        userId,
+
+      updatedAtUtc:
+        serverTimestamp(),
+
+      version:
+        Number(
+          transactionData.version ??
+            1,
+        ) + 1,
+    },
+  );
 
   return transactionId;
 }
 
-// Kullanıcının aktif finansal kayıtlarını getirir.
-export async function getTransactions(userId) {
-  const transactionsQuery = query(
-    collection(db, "users", userId, "transactions"),
-    orderBy("createdAtUtc", "desc"),
-  );
+export async function getTransactions(
+  userId,
+) {
+  const transactionsQuery =
+    query(
+      collection(
+        db,
+        "users",
+        userId,
+        "transactions",
+      ),
+      orderBy(
+        "createdAtUtc",
+        "desc",
+      ),
+    );
 
-  const transactionsSnapshot = await getDocs(transactionsQuery);
+  const transactionsSnapshot =
+    await getDocs(
+      transactionsQuery,
+    );
 
   return transactionsSnapshot.docs
-    .map(mapTransactionDocument)
-    .filter((transaction) => !transaction.isDeleted);
+    .map(
+      mapTransactionDocument,
+    )
+    .filter(
+      (
+        transaction,
+      ) =>
+        !transaction.isDeleted,
+    );
 }

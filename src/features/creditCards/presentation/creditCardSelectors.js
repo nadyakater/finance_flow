@@ -1,6 +1,14 @@
+import {
+  createSelector,
+} from "@reduxjs/toolkit";
+
 const selectCreditCardState =
   (state) =>
     state.creditCards;
+
+const selectTransactionItems =
+  (state) =>
+    state.transactions.items;
 
 // 9.GÜN - Kredi kartı kayıtlarını Redux içerisinden alan selector oluşturuldu.
 export const selectCreditCards =
@@ -9,15 +17,27 @@ export const selectCreditCards =
       state,
     ).creditCards;
 
-// 9.GÜN - Yalnızca aktif kredi kartlarını getiren selector oluşturuldu.
+// =====================================================
+// 11.GÜN
+// Aktif kredi kartları createSelector ile hesaplanarak
+// gereksiz yeniden render oluşması engellendi.
+// =====================================================
+
 export const selectActiveCreditCards =
-  (state) =>
-    selectCreditCards(
-      state,
-    ).filter(
-      (creditCard) =>
-        creditCard.isActive,
-    );
+  createSelector(
+    [
+      selectCreditCards,
+    ],
+    (
+      creditCards,
+    ) =>
+      creditCards.filter(
+        (
+          creditCard,
+        ) =>
+          creditCard.isActive,
+      ),
+  );
 
 // 9.GÜN - Kredi kartlarının yüklenme durumunu alan selector oluşturuldu.
 export const selectCreditCardLoadStatus =
@@ -39,3 +59,79 @@ export const selectCreditCardError =
     selectCreditCardState(
       state,
     ).error;
+
+// 10.GÜN - Kart limiti ile karta ait iade sonrası harcamalar arasındaki farktan kalan limit hesaplandı.
+export const selectCreditCardsWithRemainingLimit =
+  createSelector(
+    [
+      selectCreditCards,
+      selectTransactionItems,
+    ],
+    (
+      creditCards,
+      transactions,
+    ) =>
+      creditCards.map(
+        (
+          creditCard,
+        ) => {
+          const usedLimitMinor =
+            transactions
+              .filter(
+                (
+                  transaction,
+                ) =>
+                  transaction.transactionType ===
+                    "Gider" &&
+                  transaction.paymentMethod ===
+                    "Kredi Kartı" &&
+                  transaction.creditCardId ===
+                    creditCard.id,
+              )
+              .reduce(
+                (
+                  total,
+                  transaction,
+                ) => {
+                  const amountMinor =
+                    Number(
+                      transaction.amountMinor ??
+                        0,
+                    );
+
+                  const refundedMinor =
+                    Number(
+                      transaction.refundedMinor ??
+                        0,
+                    );
+
+                  return (
+                    total +
+                    Math.max(
+                      amountMinor -
+                        refundedMinor,
+                      0,
+                    )
+                  );
+                },
+                0,
+              );
+
+          return {
+            ...creditCard,
+
+            usedLimitMinor,
+
+            remainingLimitMinor:
+              Math.max(
+                Number(
+                  creditCard.limitMinor ??
+                    0,
+                ) -
+                  usedLimitMinor,
+                0,
+              ),
+          };
+        },
+      ),
+  );

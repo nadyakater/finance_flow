@@ -986,3 +986,113 @@ body {
     width: 100%;
   }
 }
+
+/* 10.GÜN - Otomatik hesaplanan gider toplamının kullanıcı tarafından kolay fark edilmesi sağlandı. */
+
+.calculated-net-total {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px;
+  border: 1px solid #f48fb1;
+  border-radius: 12px;
+  background-color: #fff5f8;
+  color: #880e4f;
+  text-align: center;
+}
+
+.calculated-net-total span {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.calculated-net-total strong {
+  color: #d81b60;
+  font-size: 27px;
+}
+
+/* =====================================================
+   11.GÜN
+   Kredi kartlarının bu ayki ve gelecek aylardaki taksit
+   yüklerinin sade kart görünümünde gösterilmesi sağlandı.
+   ===================================================== */
+
+.installment-summary-panel {
+  margin: 18px 0;
+  padding: 15px;
+  border: 1px solid #f8bbd0;
+  border-radius: 10px;
+  background-color: #ffffff;
+}
+
+.installment-current-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f8bbd0;
+}
+
+.installment-current-total span {
+  color: #880e4f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.installment-current-total strong {
+  color: #d81b60;
+  font-size: 20px;
+}
+
+.installment-future-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: #880e4f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.installment-month-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.installment-month-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background-color: #fff5f8;
+  color: #555555;
+  font-size: 13px;
+}
+
+.installment-month-item strong {
+  color: #880e4f;
+}
+
+.installment-empty-text {
+  margin: 12px 0 0;
+  color: #777777;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .installment-current-total,
+  .installment-future-header,
+  .installment-month-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

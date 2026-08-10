@@ -46,9 +46,7 @@ function convertLimitToMinor(limit) {
     Number(normalizedLimit);
 
   if (
-    !Number.isFinite(
-      numericLimit,
-    ) ||
+    !Number.isFinite(numericLimit) ||
     numericLimit <= 0
   ) {
     throw new Error(
@@ -69,9 +67,7 @@ function validateDay(
     Number(day);
 
   if (
-    !Number.isInteger(
-      numericDay,
-    ) ||
+    !Number.isInteger(numericDay) ||
     numericDay < 1 ||
     numericDay > 31
   ) {
@@ -106,66 +102,6 @@ function validateLastFourDigits(
   return normalizedDigits;
 }
 
-function prepareDueRule(
-  dueRuleType,
-  dueRuleValue,
-) {
-  const allowedRuleTypes = [
-    "fixedDay",
-    "daysAfterStatement",
-  ];
-
-  if (
-    !allowedRuleTypes.includes(
-      dueRuleType,
-    )
-  ) {
-    throw new Error(
-      "CREDIT_CARD_DUE_RULE_INVALID",
-    );
-  }
-
-  const numericRuleValue =
-    Number(dueRuleValue);
-
-  if (
-    !Number.isInteger(
-      numericRuleValue,
-    ) ||
-    numericRuleValue < 1
-  ) {
-    throw new Error(
-      "CREDIT_CARD_DUE_RULE_INVALID",
-    );
-  }
-
-  if (
-    dueRuleType ===
-      "fixedDay" &&
-    numericRuleValue > 31
-  ) {
-    throw new Error(
-      "CREDIT_CARD_DUE_RULE_INVALID",
-    );
-  }
-
-  if (
-    dueRuleType ===
-      "daysAfterStatement" &&
-    numericRuleValue > 60
-  ) {
-    throw new Error(
-      "CREDIT_CARD_DUE_RULE_INVALID",
-    );
-  }
-
-  return {
-    type: dueRuleType,
-
-    value: numericRuleValue,
-  };
-}
-
 function mapCreditCardDocument(
   creditCardDocument,
 ) {
@@ -173,7 +109,8 @@ function mapCreditCardDocument(
     creditCardDocument.data();
 
   return {
-    id: creditCardDocument.id,
+    id:
+      creditCardDocument.id,
 
     ownerId:
       data.ownerId ?? "",
@@ -196,29 +133,17 @@ function mapCreditCardDocument(
 
     statementDay:
       Number(
-        data.statementDay ?? 1,
+        data.statementDay ?? 31,
       ),
 
-    dueRule: {
-      type:
-        data.dueRule?.type ??
-        "fixedDay",
-
-      value:
-        Number(
-          data.dueRule?.value ??
-            1,
-        ),
-    },
+    // 11.GÜN - Kredi kartının varsayılan son ödeme günü Firestore kaydından okunur.
+    dueDay:
+      Number(
+        data.dueDay ?? 10,
+      ),
 
     linkedPaymentAccountId:
-      data.linkedPaymentAccountId ??
-      "",
-
-    installmentSupport:
-      Boolean(
-        data.installmentSupport,
-      ),
+      data.linkedPaymentAccountId ?? "",
 
     isActive:
       data.isActive !== false,
@@ -240,7 +165,9 @@ function mapCreditCardDocument(
       data.updatedBy ?? "",
 
     isDeleted:
-      Boolean(data.isDeleted),
+      Boolean(
+        data.isDeleted,
+      ),
 
     version:
       Number(
@@ -340,14 +267,22 @@ export async function createCreditCard(
 
   const statementDay =
     validateDay(
-      creditCard.statementDay,
+      creditCard.statementDay ?? 31,
       "CREDIT_CARD_STATEMENT_DAY_INVALID",
     );
 
-  const dueRule =
-    prepareDueRule(
-      creditCard.dueRuleType,
-      creditCard.dueRuleValue,
+  // =====================================================
+  // 11.GÜN
+  // Kredi kartının son ödeme günü kullanıcıdan ayrıca
+  // istenmeden varsayılan değer ile teknik olarak saklanır.
+  //
+  // Bu bilgi ekstre kapanışından sonraki son ödeme tarihinin
+  // otomatik hesaplanmasında kullanılacaktır.
+  // =====================================================
+  const dueDay =
+    validateDay(
+      creditCard.dueDay ?? 10,
+      "CREDIT_CARD_DUE_DAY_INVALID",
     );
 
   const creditCardReference =
@@ -359,7 +294,8 @@ export async function createCreditCard(
         "creditCards",
       ),
       {
-        ownerId: userId,
+        ownerId:
+          userId,
 
         name,
 
@@ -371,24 +307,23 @@ export async function createCreditCard(
 
         statementDay,
 
-        dueRule,
+        dueDay,
 
         linkedPaymentAccountId:
           creditCard.linkedPaymentAccountId ??
           "",
 
-        installmentSupport:
-          Boolean(
-            creditCard.installmentSupport,
-          ),
+        isActive:
+          true,
 
-        isActive: true,
+        createdBy:
+          userId,
 
-        createdBy: userId,
+        updatedBy:
+          userId,
 
-        updatedBy: userId,
-
-        isDeleted: false,
+        isDeleted:
+          false,
 
         version: 1,
 
@@ -453,7 +388,8 @@ export async function updateCreditCardActiveStatus(
       isActive:
         Boolean(isActive),
 
-      updatedBy: userId,
+      updatedBy:
+        userId,
 
       updatedAtUtc:
         serverTimestamp(),

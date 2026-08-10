@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useDispatch, useSelector } from "react-redux";
 
@@ -14,6 +14,28 @@ import {
   selectCreditCards,
 } from "../creditCardSelectors";
 
+import { loadInstallmentPlans } from "../../../installments/application/installmentThunks";
+
+import {
+  selectCreditCardInstallmentSummaries,
+  selectInstallmentError,
+  selectInstallmentLoadStatus,
+} from "../../../installments/presentation/installmentSelectors";
+
+import {
+  changeStatementDueDate,
+  loadStatementPeriods,
+  payStatement,
+} from "../../../statements/application/statementThunks";
+
+import {
+  selectCreditCardPurchaseLoadSummaries,
+  selectStatementError,
+  selectStatementLoadStatus,
+  selectStatementMutationStatus,
+  selectStatementPeriodsByCreditCard,
+} from "../../../statements/presentation/statementSelectors";
+
 import { selectCurrentUser } from "../../../auth/presentation/authSelectors";
 
 // =====================================================
@@ -22,20 +44,51 @@ import { selectCurrentUser } from "../../../auth/presentation/authSelectors";
 // Redux ve repository katmanları kullanılarak oluşturuldu.
 // =====================================================
 
+// =====================================================
+// 11.GÜN
+// Kredi kartlarına ait taksit planları Redux üzerinden
+// alınarak kartların altında aylık taksit özeti gösterildi.
+//
+// Kullanıcıya teknik taksit kayıtları yerine yalnızca bu ay
+// ve gelecek aylarda ödenecek anlaşılır tutarlar gösterilir.
+// =====================================================
+
+// =====================================================
+// DÜZENLEME
+// Müdürün isteği doğrultusunda hesap kesim günü ve kalan
+// limit bilgileri kredi kartı kullanıcı arayüzünden kaldırıldı.
+//
+// Taksit hesaplamasının çalışmaya devam etmesi için gerekli
+// teknik kesim günü kullanıcıya gösterilmeden sistemde tutulur.
+// =====================================================
+
+// =====================================================
+// 11.GÜN
+// Kredi kartlarının ekstre dönemleri kullanıcıya gösterildi.
+//
+// Ekstre ödemesi yeni gider oluşturmadan paidAmountMinor
+// alanını artırır ve son ödeme tarihi manuel değiştirilebilir.
+// =====================================================
+
+// =====================================================
+// 11.GÜN
+// PDF 3.14 kapsamında satın alma davranışı ile ödeme yükü
+// dört ayrı finansal değer olarak kredi kartında gösterildi.
+// =====================================================
+
 function formatAmount(amountMinor) {
   return (Number(amountMinor ?? 0) / 100).toLocaleString("tr-TR", {
     minimumFractionDigits: 2,
-
     maximumFractionDigits: 2,
   });
 }
 
-function getDueRuleLabel(dueRule) {
-  if (dueRule?.type === "daysAfterStatement") {
-    return `Kesim tarihinden ${dueRule.value} gün sonra`;
+function formatDate(dateValue) {
+  if (!dateValue) {
+    return "-";
   }
 
-  return `Her ayın ${dueRule?.value ?? "-"} günü`;
+  return new Date(`${dateValue}T00:00:00`).toLocaleDateString("tr-TR");
 }
 
 function CreditCardSection() {
@@ -51,6 +104,28 @@ function CreditCardSection() {
 
   const creditCardError = useSelector(selectCreditCardError);
 
+  const installmentSummaries = useSelector(
+    selectCreditCardInstallmentSummaries,
+  );
+
+  const installmentLoadStatus = useSelector(selectInstallmentLoadStatus);
+
+  const installmentError = useSelector(selectInstallmentError);
+
+  const statementsByCreditCard = useSelector(
+    selectStatementPeriodsByCreditCard,
+  );
+
+  const purchaseLoadSummaries = useSelector(
+    selectCreditCardPurchaseLoadSummaries,
+  );
+
+  const statementLoadStatus = useSelector(selectStatementLoadStatus);
+
+  const statementMutationStatus = useSelector(selectStatementMutationStatus);
+
+  const statementError = useSelector(selectStatementError);
+
   const [name, setName] = useState("");
 
   const [issuer, setIssuer] = useState("");
@@ -59,17 +134,25 @@ function CreditCardSection() {
 
   const [limit, setLimit] = useState("");
 
-  const [statementDay, setStatementDay] = useState("");
-
-  const [dueRuleType, setDueRuleType] = useState("fixedDay");
-
-  const [dueRuleValue, setDueRuleValue] = useState("");
-
-  const [installmentSupport, setInstallmentSupport] = useState(true);
-
   const [creditCardFormError, setCreditCardFormError] = useState("");
 
-  const isMutating = creditCardMutationStatus === "loading";
+  const [paymentAmounts, setPaymentAmounts] = useState({});
+
+  const [manualDueDates, setManualDueDates] = useState({});
+
+  const isMutating =
+    creditCardMutationStatus === "loading" ||
+    statementMutationStatus === "loading";
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    dispatch(loadInstallmentPlans(currentUser.id));
+
+    dispatch(loadStatementPeriods(currentUser.id));
+  }, [dispatch, currentUser?.id]);
 
   const resetForm = () => {
     setName("");
@@ -79,14 +162,6 @@ function CreditCardSection() {
     setLastFourDigits("");
 
     setLimit("");
-
-    setStatementDay("");
-
-    setDueRuleType("fixedDay");
-
-    setDueRuleValue("");
-
-    setInstallmentSupport(true);
 
     setCreditCardFormError("");
   };
@@ -130,36 +205,6 @@ function CreditCardSection() {
       return;
     }
 
-    const numericStatementDay = Number(statementDay);
-
-    if (
-      !Number.isInteger(numericStatementDay) ||
-      numericStatementDay < 1 ||
-      numericStatementDay > 31
-    ) {
-      setCreditCardFormError("Hesap kesim günü 1 ile 31 arasında olmalıdır.");
-
-      return;
-    }
-
-    const numericDueRuleValue = Number(dueRuleValue);
-
-    if (!Number.isInteger(numericDueRuleValue) || numericDueRuleValue < 1) {
-      setCreditCardFormError(
-        "Son ödeme tarihi kuralı için geçerli bir gün giriniz.",
-      );
-
-      return;
-    }
-
-    if (dueRuleType === "fixedDay" && numericDueRuleValue > 31) {
-      setCreditCardFormError(
-        "Sabit son ödeme günü 1 ile 31 arasında olmalıdır.",
-      );
-
-      return;
-    }
-
     const result = await dispatch(
       addCreditCard({
         userId: currentUser.id,
@@ -172,15 +217,13 @@ function CreditCardSection() {
 
         limit,
 
-        statementDay,
+        // DÜZENLEME - Kesim günü kullanıcıdan istenmeden teknik hesap için ayın son günü kullanılır.
+        statementDay: 31,
 
-        dueRuleType,
-
-        dueRuleValue,
+        // 11.GÜN - Son ödeme günü kullanıcı arayüzünü karmaşıklaştırmadan teknik olarak varsayılan 10 kullanılır.
+        dueDay: 10,
 
         linkedPaymentAccountId: "",
-
-        installmentSupport,
       }),
     );
 
@@ -211,8 +254,52 @@ function CreditCardSection() {
     );
   };
 
+  const handleStatementPayment = async (statement) => {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    const amount = paymentAmounts[statement.id] ?? "";
+
+    const result = await dispatch(
+      payStatement({
+        userId: currentUser.id,
+
+        statementPeriodId: statement.id,
+
+        amount,
+      }),
+    );
+
+    if (payStatement.fulfilled.match(result)) {
+      setPaymentAmounts((currentValues) => ({
+        ...currentValues,
+
+        [statement.id]: "",
+      }));
+    }
+  };
+
+  const handleDueDateUpdate = async (statement) => {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    const dueDate = manualDueDates[statement.id] ?? statement.dueDate;
+
+    await dispatch(
+      changeStatementDueDate({
+        userId: currentUser.id,
+
+        statementPeriodId: statement.id,
+
+        dueDate,
+      }),
+    );
+  };
+
   return (
-    <section className="category-management-section">
+    <section>
       <h2 className="section-title">Kredi Kartları</h2>
 
       <form className="category-action-panel" onSubmit={handleAddCreditCard}>
@@ -293,98 +380,6 @@ function CreditCardSection() {
               required
             />
           </div>
-
-          <div>
-            <label className="form-label" htmlFor="creditCardStatementDay">
-              Hesap Kesim Günü *
-            </label>
-
-            <input
-              id="creditCardStatementDay"
-              className="form-input"
-              type="number"
-              min="1"
-              max="31"
-              step="1"
-              placeholder="25"
-              value={statementDay}
-              onChange={(event) => setStatementDay(event.target.value)}
-              disabled={isMutating}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="form-label" htmlFor="creditCardDueRuleType">
-              Son Ödeme Kuralı *
-            </label>
-
-            <select
-              id="creditCardDueRuleType"
-              className="form-input"
-              value={dueRuleType}
-              onChange={(event) => {
-                setDueRuleType(event.target.value);
-
-                setDueRuleValue("");
-              }}
-              disabled={isMutating}
-              required
-            >
-              <option value="fixedDay">Her Ay Sabit Gün</option>
-
-              <option value="daysAfterStatement">
-                Kesimden Belirli Gün Sonra
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div>
-            <label className="form-label" htmlFor="creditCardDueRuleValue">
-              {dueRuleType === "fixedDay"
-                ? "Son Ödeme Günü *"
-                : "Kesimden Sonraki Gün Sayısı *"}
-            </label>
-
-            <input
-              id="creditCardDueRuleValue"
-              className="form-input"
-              type="number"
-              min="1"
-              max={dueRuleType === "fixedDay" ? "31" : "60"}
-              step="1"
-              placeholder={dueRuleType === "fixedDay" ? "5" : "10"}
-              value={dueRuleValue}
-              onChange={(event) => setDueRuleValue(event.target.value)}
-              disabled={isMutating}
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              className="form-label"
-              htmlFor="creditCardInstallmentSupport"
-            >
-              Taksit Desteği
-            </label>
-
-            <select
-              id="creditCardInstallmentSupport"
-              className="form-input"
-              value={installmentSupport ? "enabled" : "disabled"}
-              onChange={(event) =>
-                setInstallmentSupport(event.target.value === "enabled")
-              }
-              disabled={isMutating}
-            >
-              <option value="enabled">Açık</option>
-
-              <option value="disabled">Kapalı</option>
-            </select>
-          </div>
         </div>
 
         <button
@@ -404,56 +399,299 @@ function CreditCardSection() {
         <p className="empty-message">Henüz kredi kartı eklenmedi.</p>
       )}
 
+      {installmentLoadStatus === "loading" && (
+        <p className="empty-message">Taksit bilgileri yükleniyor...</p>
+      )}
+
+      {statementLoadStatus === "loading" && (
+        <p className="empty-message">Ekstreler yükleniyor...</p>
+      )}
+
       {creditCards.length > 0 && (
         <div className="category-form-grid">
-          {creditCards.map((creditCard) => (
-            <article key={creditCard.id} className="category-action-panel">
-              <h3>{creditCard.name}</h3>
+          {creditCards.map((creditCard) => {
+            const installmentSummary = installmentSummaries[creditCard.id] ?? {
+              currentMonthTotalMinor: 0,
 
-              <p>
-                <strong>Banka:</strong> {creditCard.issuer}
-              </p>
+              futureTotalMinor: 0,
 
-              <p>
-                <strong>Kart:</strong>{" "}
-                {creditCard.lastFourDigits
-                  ? `**** ${creditCard.lastFourDigits}`
-                  : "Son dört hane girilmedi"}
-              </p>
+              futureMonths: [],
+            };
 
-              <p>
-                <strong>Limit:</strong> {formatAmount(creditCard.limitMinor)} ₺
-              </p>
+            const cardStatements = statementsByCreditCard[creditCard.id] ?? [];
 
-              <p>
-                <strong>Hesap Kesim Günü:</strong> {creditCard.statementDay}
-              </p>
+            const purchaseLoadSummary = purchaseLoadSummaries[
+              creditCard.id
+            ] ?? {
+              cycleStart: "",
 
-              <p>
-                <strong>Son Ödeme:</strong>{" "}
-                {getDueRuleLabel(creditCard.dueRule)}
-              </p>
+              cycleEnd: "",
 
-              <p>
-                <strong>Taksit:</strong>{" "}
-                {creditCard.installmentSupport ? "Açık" : "Kapalı"}
-              </p>
+              dueDate: "",
 
-              <p>
-                <strong>Durum:</strong>{" "}
-                {creditCard.isActive ? "Aktif" : "Kapalı"}
-              </p>
+              newSpendingMinor: 0,
 
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => handleActiveStatusChange(creditCard)}
-                disabled={isMutating}
-              >
-                {creditCard.isActive ? "Kartı Kapat" : "Kartı Yeniden Aç"}
-              </button>
-            </article>
-          ))}
+              priorCommitmentBurdenMinor: 0,
+
+              cashNeededByDueDateMinor: 0,
+
+              futureCommittedInstallmentsMinor: 0,
+            };
+
+            return (
+              <article key={creditCard.id} className="category-action-panel">
+                <h3>{creditCard.name}</h3>
+
+                <p>
+                  <strong>Banka:</strong> {creditCard.issuer}
+                </p>
+
+                <p>
+                  <strong>Kart:</strong>{" "}
+                  {creditCard.lastFourDigits
+                    ? `**** ${creditCard.lastFourDigits}`
+                    : "Son dört hane girilmedi"}
+                </p>
+
+                <p>
+                  <strong>Limit:</strong> {formatAmount(creditCard.limitMinor)}{" "}
+                  ₺
+                </p>
+
+                <p>
+                  <strong>Durum:</strong>{" "}
+                  {creditCard.isActive ? "Aktif" : "Kapalı"}
+                </p>
+
+                {/* 11.GÜN - Satın alma davranışı ve ödeme yükü PDF 3.14 kurallarına göre ayrı gösterilir. */}
+                <div className="installment-summary-panel">
+                  <h4>Satın Alma ve Ödeme Yükü</h4>
+
+                  {purchaseLoadSummary.cycleStart &&
+                    purchaseLoadSummary.cycleEnd && (
+                      <p>
+                        <strong>Aktif Ekstre Dönemi:</strong>{" "}
+                        {formatDate(purchaseLoadSummary.cycleStart)}
+                        {" - "}
+                        {formatDate(purchaseLoadSummary.cycleEnd)}
+                      </p>
+                    )}
+
+                  <div className="installment-current-total">
+                    <span>Bu Dönemde Yeni Harcama</span>
+
+                    <strong>
+                      {formatAmount(purchaseLoadSummary.newSpendingMinor)} ₺
+                    </strong>
+                  </div>
+
+                  <p>
+                    Bu tutar, bu kart döneminde yeni yaptığınız alışverişlerin
+                    tam tutarıdır.
+                  </p>
+
+                  <div className="installment-current-total">
+                    <span>Önceki Dönemden Gelen Taksit Yükü</span>
+
+                    <strong>
+                      {formatAmount(
+                        purchaseLoadSummary.priorCommitmentBurdenMinor,
+                      )}{" "}
+                      ₺
+                    </strong>
+                  </div>
+
+                  <p>
+                    Bu tutar, önceki dönem alışverişlerinden bu ekstreye düşen
+                    taksitleri gösterir.
+                  </p>
+
+                  <div className="installment-current-total">
+                    <span>Son Ödeme Tarihine Kadar Gereken Para</span>
+
+                    <strong>
+                      {formatAmount(
+                        purchaseLoadSummary.cashNeededByDueDateMinor,
+                      )}{" "}
+                      ₺
+                    </strong>
+                  </div>
+
+                  <p>
+                    Son ödeme tarihi:{" "}
+                    <strong>{formatDate(purchaseLoadSummary.dueDate)}</strong>
+                  </p>
+
+                  <div className="installment-future-header">
+                    <span>Gelecek Aylara Kalan Taksit Borcu</span>
+
+                    <strong>
+                      {formatAmount(
+                        purchaseLoadSummary.futureCommittedInstallmentsMinor,
+                      )}{" "}
+                      ₺
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="installment-summary-panel">
+                  <div className="installment-current-total">
+                    <span>Bu Ayki Taksit Toplamı</span>
+
+                    <strong>
+                      {formatAmount(installmentSummary.currentMonthTotalMinor)}{" "}
+                      ₺
+                    </strong>
+                  </div>
+
+                  <div className="installment-future-header">
+                    <span>Gelecek Taksitler</span>
+
+                    <strong>
+                      {formatAmount(installmentSummary.futureTotalMinor)} ₺
+                    </strong>
+                  </div>
+
+                  {installmentSummary.futureMonths.length > 0 ? (
+                    <div className="installment-month-list">
+                      {installmentSummary.futureMonths.map((month) => (
+                        <div
+                          key={month.monthKey}
+                          className="installment-month-item"
+                        >
+                          <span>{month.monthLabel}</span>
+
+                          <strong>{formatAmount(month.amountMinor)} ₺</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="installment-empty-text">
+                      Gelecek aylara ait taksit bulunmuyor.
+                    </p>
+                  )}
+                </div>
+
+                <div className="category-action-panel">
+                  <h4>Ekstreler</h4>
+
+                  {cardStatements.length === 0 ? (
+                    <p className="empty-message">
+                      Henüz ekstre kaydı bulunmuyor.
+                    </p>
+                  ) : (
+                    cardStatements.map((statement) => (
+                      <div key={statement.id} className="category-action-panel">
+                        <p>
+                          <strong>Dönem:</strong>{" "}
+                          {formatDate(statement.cycleStart)}
+                          {" - "}
+                          {formatDate(statement.cycleEnd)}
+                        </p>
+
+                        <p>
+                          <strong>Durum:</strong>{" "}
+                          {statement.status === "closed"
+                            ? "Kapandı"
+                            : "Tahmini"}
+                        </p>
+
+                        <p>
+                          <strong>Ekstre:</strong>{" "}
+                          {formatAmount(statement.statementAmountMinor)} ₺
+                        </p>
+
+                        <p>
+                          <strong>Ödenen:</strong>{" "}
+                          {formatAmount(statement.paidAmountMinor)} ₺
+                        </p>
+
+                        <p>
+                          <strong>Kalan:</strong>{" "}
+                          {formatAmount(statement.unpaidAmountMinor)} ₺
+                        </p>
+
+                        <p>
+                          <strong>Son Ödeme:</strong>{" "}
+                          {formatDate(statement.dueDate)}
+                        </p>
+
+                        <div>
+                          <label className="form-label">
+                            Son Ödeme Tarihini Düzelt
+                          </label>
+
+                          <input
+                            className="form-input"
+                            type="date"
+                            value={
+                              manualDueDates[statement.id] ?? statement.dueDate
+                            }
+                            onChange={(event) =>
+                              setManualDueDates((currentValues) => ({
+                                ...currentValues,
+
+                                [statement.id]: event.target.value,
+                              }))
+                            }
+                          />
+
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            onClick={() => handleDueDateUpdate(statement)}
+                            disabled={isMutating}
+                          >
+                            Tarihi Güncelle
+                          </button>
+                        </div>
+
+                        {statement.unpaidAmountMinor > 0 && (
+                          <div>
+                            <label className="form-label">Ekstre Ödemesi</label>
+
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              placeholder="0,00"
+                              value={paymentAmounts[statement.id] ?? ""}
+                              onChange={(event) =>
+                                setPaymentAmounts((currentValues) => ({
+                                  ...currentValues,
+
+                                  [statement.id]: event.target.value,
+                                }))
+                              }
+                            />
+
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              onClick={() => handleStatementPayment(statement)}
+                              disabled={isMutating}
+                            >
+                              Ödemeyi Kaydet
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => handleActiveStatusChange(creditCard)}
+                  disabled={isMutating}
+                >
+                  {creditCard.isActive ? "Kartı Kapat" : "Kartı Yeniden Aç"}
+                </button>
+              </article>
+            );
+          })}
         </div>
       )}
 
@@ -466,6 +704,18 @@ function CreditCardSection() {
       {creditCardError && (
         <p className="form-error" role="alert">
           {creditCardError}
+        </p>
+      )}
+
+      {installmentError && (
+        <p className="form-error" role="alert">
+          {installmentError}
+        </p>
+      )}
+
+      {statementError && (
+        <p className="form-error" role="alert">
+          {statementError}
         </p>
       )}
     </section>

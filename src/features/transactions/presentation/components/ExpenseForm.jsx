@@ -27,19 +27,15 @@ function ExpenseForm({
   setTransactionDiscount,
   couponCode,
   setCouponCode,
-  receiptTotal,
-  setReceiptTotal,
   expenseTotals,
   formatAmount,
 }) {
   return (
     <>
+      {/* 10.GÜN - Firma ve şube bilgilerinin gider satırlarından ayrı ve daha anlaşılır seçilmesi sağlandı. */}
       <div className="form-row">
         <div>
-          <label
-            className="form-label"
-            htmlFor="expenseMerchant"
-          >
+          <label className="form-label" htmlFor="expenseMerchant">
             Firma / Mağaza
           </label>
 
@@ -47,34 +43,20 @@ function ExpenseForm({
             id="expenseMerchant"
             className="form-input"
             value={merchantId}
-            onChange={(event) =>
-              setMerchantId(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setMerchantId(event.target.value)}
           >
-            <option value="">
-              Firma seçmeden devam et
-            </option>
+            <option value="">Firma seçmeden devam et</option>
 
-            {merchants.map(
-              (merchant) => (
-                <option
-                  key={merchant.id}
-                  value={merchant.id}
-                >
-                  {merchant.name}
-                </option>
-              ),
-            )}
+            {merchants.map((merchant) => (
+              <option key={merchant.id} value={merchant.id}>
+                {merchant.name}
+              </option>
+            ))}
           </select>
         </div>
 
         <div>
-          <label
-            className="form-label"
-            htmlFor="expenseBranch"
-          >
+          <label className="form-label" htmlFor="expenseBranch">
             Şube
           </label>
 
@@ -82,88 +64,55 @@ function ExpenseForm({
             id="expenseBranch"
             className="form-input"
             value={branchId}
-            onChange={(event) =>
-              setBranchId(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setBranchId(event.target.value)}
             disabled={!merchantId}
           >
-            <option value="">
-              Şube seçmeden devam et
-            </option>
+            <option value="">Şube seçmeden devam et</option>
 
-            {merchantBranches.map(
-              (branch) => (
-                <option
-                  key={branch.id}
-                  value={branch.id}
-                >
-                  {branch.name}
-                </option>
-              ),
-            )}
+            {merchantBranches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
       <div className="category-action-panel">
-        <h3 className="archive-title">
-          Gider Satırları
-        </h3>
+        <h3 className="archive-title">Gider Satırları</h3>
 
         <p className="empty-message">
-          Aynı işlem içerisindeki farklı
-          ürün veya kategorileri ayrı gider
-          satırları olarak ekleyebilirsiniz.
+          Alışverişinizdeki ürünleri veya farklı giderleri ayrı satırlar olarak
+          ekleyebilirsiniz.
         </p>
 
-        {transactionCategoryOptions.length ===
-          0 && (
+        {transactionCategoryOptions.length === 0 && (
           <p className="form-error">
-            Gider kategorisi bulunmuyor.
-            Önce gider türünde bir kategori
+            Gider kategorisi bulunmuyor. Önce gider türünde bir kategori
             oluşturunuz.
           </p>
         )}
 
-        {expenseLines.map(
-          (line, index) => (
-            <ExpenseLineItem
-              key={line.id}
-              line={line}
-              index={index}
-              expenseLinesCount={
-                expenseLines.length
-              }
-              transactionCategoryOptions={
-                transactionCategoryOptions
-              }
-              categoryLoadStatus={
-                categoryLoadStatus
-              }
-              products={products}
-              brands={brands}
-              handleExpenseLineChange={
-                handleExpenseLineChange
-              }
-              handleRemoveExpenseLine={
-                handleRemoveExpenseLine
-              }
-            />
-          ),
-        )}
+        {expenseLines.map((line, index) => (
+          <ExpenseLineItem
+            key={line.id}
+            line={line}
+            index={index}
+            expenseLinesCount={expenseLines.length}
+            transactionCategoryOptions={transactionCategoryOptions}
+            categoryLoadStatus={categoryLoadStatus}
+            products={products}
+            brands={brands}
+            handleExpenseLineChange={handleExpenseLineChange}
+            handleRemoveExpenseLine={handleRemoveExpenseLine}
+          />
+        ))}
 
         <button
           className="secondary-button"
           type="button"
-          onClick={
-            handleAddExpenseLine
-          }
-          disabled={
-            transactionCategoryOptions.length ===
-            0
-          }
+          onClick={handleAddExpenseLine}
+          disabled={transactionCategoryOptions.length === 0}
         >
           Yeni Gider Satırı Ekle
         </button>
@@ -171,10 +120,7 @@ function ExpenseForm({
 
       <div className="form-row">
         <div>
-          <label
-            className="form-label"
-            htmlFor="transactionDiscount"
-          >
+          <label className="form-label" htmlFor="transactionDiscount">
             Genel İşlem İndirimi
           </label>
 
@@ -185,22 +131,13 @@ function ExpenseForm({
             min="0"
             step="0.01"
             placeholder="0,00"
-            value={
-              transactionDiscount
-            }
-            onChange={(event) =>
-              setTransactionDiscount(
-                event.target.value,
-              )
-            }
+            value={transactionDiscount}
+            onChange={(event) => setTransactionDiscount(event.target.value)}
           />
         </div>
 
         <div>
-          <label
-            className="form-label"
-            htmlFor="couponCode"
-          >
+          <label className="form-label" htmlFor="couponCode">
             Kupon Kodu
           </label>
 
@@ -211,102 +148,32 @@ function ExpenseForm({
             maxLength="50"
             placeholder="İsteğe bağlı"
             value={couponCode}
-            onChange={(event) =>
-              setCouponCode(
-                event.target.value,
-              )
-            }
-          />
-        </div>
-
-        <div>
-          <label
-            className="form-label"
-            htmlFor="receiptTotal"
-          >
-            İşlemin Net Toplamı *
-          </label>
-
-          <input
-            id="receiptTotal"
-            className="form-input"
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="Net işlem toplamı"
-            value={receiptTotal}
-            onChange={(event) =>
-              setReceiptTotal(
-                event.target.value,
-              )
-            }
-            required
+            onChange={(event) => setCouponCode(event.target.value)}
           />
         </div>
       </div>
 
+      {/* 10.GÜN - Kullanıcının toplamı tekrar yazmasına gerek kalmadan net tutarın otomatik gösterilmesi sağlandı. */}
       <div className="category-action-panel expense-total-panel">
-        <p className="selected-category-text">
-          Brüt Satır Toplamı:{" "}
-          <strong>
-            {formatAmount(
-              expenseTotals.subtotalMinor,
-            )}{" "}
-            ₺
-          </strong>
-        </p>
-
         <p className="selected-category-text">
           Satır İndirimleri:{" "}
           <strong>
-            {formatAmount(
-              expenseTotals.lineDiscountTotalMinor,
-            )}{" "}
-            ₺
+            {formatAmount(expenseTotals.lineDiscountTotalMinor)} ₺
           </strong>
         </p>
 
         <p className="selected-category-text">
           Genel İşlem İndirimi:{" "}
           <strong>
-            {formatAmount(
-              expenseTotals.transactionDiscountMinor,
-            )}{" "}
-            ₺
+            {formatAmount(expenseTotals.transactionDiscountMinor)} ₺
           </strong>
         </p>
 
-        <p className="selected-category-text">
-          Hesaplanan Net Toplam:{" "}
-          <strong>
-            {formatAmount(
-              expenseTotals.netTotalMinor,
-            )}{" "}
-            ₺
-          </strong>
-        </p>
+        <div className="calculated-net-total">
+          <span>Hesaplanan Net Toplam</span>
 
-        {receiptTotal && (
-          <p className="selected-category-text">
-            Girilen İşlem Toplamı:{" "}
-            <strong>
-              {Number(
-                String(
-                  receiptTotal,
-                ).replace(",", "."),
-              ).toLocaleString(
-                "tr-TR",
-                {
-                  minimumFractionDigits:
-                    2,
-                  maximumFractionDigits:
-                    2,
-                },
-              )}{" "}
-              ₺
-            </strong>
-          </p>
-        )}
+          <strong>{formatAmount(expenseTotals.netTotalMinor)} ₺</strong>
+        </div>
       </div>
     </>
   );

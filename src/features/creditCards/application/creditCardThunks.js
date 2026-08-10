@@ -54,13 +54,6 @@ function getCreditCardErrorMessage(
 
   if (
     error?.message ===
-    "CREDIT_CARD_DUE_RULE_INVALID"
-  ) {
-    return "Son ödeme tarihi kuralı geçersizdir.";
-  }
-
-  if (
-    error?.message ===
     "CREDIT_CARD_NOT_FOUND"
   ) {
     return "Kredi kartı kaydı bulunamadı.";
@@ -117,13 +110,7 @@ export const addCreditCard =
 
         statementDay,
 
-        dueRuleType,
-
-        dueRuleValue,
-
         linkedPaymentAccountId,
-
-        installmentSupport,
       },
       { rejectWithValue },
     ) => {
@@ -141,13 +128,7 @@ export const addCreditCard =
 
             statementDay,
 
-            dueRuleType,
-
-            dueRuleValue,
-
             linkedPaymentAccountId,
-
-            installmentSupport,
           },
         );
       } catch (error) {

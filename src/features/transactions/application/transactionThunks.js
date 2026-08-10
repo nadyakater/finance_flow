@@ -22,7 +22,10 @@ export const loadTransactions = createAsyncThunk(
     try {
       return await getTransactions(userId);
     } catch (error) {
-      console.error("Transaction load error:", error);
+      console.error(
+        "Transaction load error:",
+        error,
+      );
 
       return rejectWithValue(
         getTransactionErrorMessage(
@@ -40,6 +43,15 @@ export const loadTransactions = createAsyncThunk(
 //
 // Fiş veya fatura yükleme özelliği kaldırıldığı için
 // dosya yükleme işlemi artık bu thunk içinde yapılmaz.
+// =====================================================
+
+// =====================================================
+// 11.GÜN
+// Kredi kartı giderlerinde tek çekim veya taksitli ödeme
+// bilgileri repository katmanına aktarılır.
+//
+// Taksit hesaplaması thunk içinde yapılmaz. Thunk yalnızca
+// işlemi başlatır ve hesaplamayı ilgili alt katmana bırakır.
 // =====================================================
 
 export const addTransaction = createAsyncThunk(
@@ -73,6 +85,14 @@ export const addTransaction = createAsyncThunk(
 
       paymentMethod,
 
+      creditCardId,
+
+      creditCardName,
+
+      installmentType,
+
+      installmentCount,
+
       transactionDate,
 
       merchantId,
@@ -86,46 +106,63 @@ export const addTransaction = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      return await createTransaction(userId, {
-        transactionType,
+      return await createTransaction(
+        userId,
+        {
+          transactionType,
 
-        categoryId,
+          categoryId,
 
-        category,
+          category,
 
-        categoryPath,
+          categoryPath,
 
-        categoryPathIds,
+          categoryPathIds,
 
-        categoryType,
+          categoryType,
 
-        amount,
+          amount,
 
-        lines,
+          lines,
 
-        transactionDiscount,
+          transactionDiscount,
 
-        couponCode,
+          couponCode,
 
-        description,
+          description,
 
-        paymentMethod,
+          paymentMethod,
 
-        transactionDate,
+          creditCardId,
 
-        merchantId,
+          creditCardName,
 
-        merchantName,
+          installmentType,
 
-        branchId,
+          installmentCount,
 
-        branchName,
-      });
+          transactionDate,
+
+          merchantId,
+
+          merchantName,
+
+          branchId,
+
+          branchName,
+        },
+      );
     } catch (error) {
-      console.error("Transaction create error:", error);
+      console.error(
+        "Transaction create error:",
+        error,
+      );
 
       return rejectWithValue(
-        getTransactionErrorMessage(error, "Kayıt eklenirken bir hata oluştu."),
+        getTransactionErrorMessage(
+          error,
+          "Kayıt eklenirken bir hata oluştu.",
+        ),
       );
     }
   },
@@ -158,21 +195,27 @@ export const addRefundTransaction = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      return await createRefundTransaction(userId, {
-        originalTransactionId,
+      return await createRefundTransaction(
+        userId,
+        {
+          originalTransactionId,
 
-        amount,
+          amount,
 
-        refundedLines,
+          refundedLines,
 
-        reason,
+          reason,
 
-        paymentMethod,
+          paymentMethod,
 
-        transactionDate,
-      });
+          transactionDate,
+        },
+      );
     } catch (error) {
-      console.error("Refund create error:", error);
+      console.error(
+        "Refund create error:",
+        error,
+      );
 
       return rejectWithValue(
         getTransactionErrorMessage(
@@ -193,11 +236,23 @@ export const addRefundTransaction = createAsyncThunk(
 export const removeTransaction = createAsyncThunk(
   "transactions/removeTransaction",
 
-  async ({ userId, transactionId }, { rejectWithValue }) => {
+  async (
+    {
+      userId,
+      transactionId,
+    },
+    { rejectWithValue },
+  ) => {
     try {
-      return await archiveTransaction(userId, transactionId);
+      return await archiveTransaction(
+        userId,
+        transactionId,
+      );
     } catch (error) {
-      console.error("Transaction archive error:", error);
+      console.error(
+        "Transaction archive error:",
+        error,
+      );
 
       return rejectWithValue(
         getTransactionErrorMessage(
