@@ -1,45 +1,35 @@
-import {
-  useEffect,
-  useMemo,
-} from "react";
+import { useEffect, useMemo } from "react";
 
-import {
-  useDispatch,
-  useSelector,
-} from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
-import {
-  logoutUser,
-} from "../features/auth/application/authThunks";
+import { logoutUser } from "../features/auth/application/authThunks";
 
 import {
   selectAuthStatus,
   selectCurrentUser,
 } from "../features/auth/presentation/authSelectors";
 
-import {
-  loadCategories,
-} from "../features/categories/application/categoryThunks";
+import { loadCategories } from "../features/categories/application/categoryThunks";
 
-import {
-  selectActiveCategories,
-} from "../features/categories/presentation/categorySelectors";
+import { selectActiveCategories } from "../features/categories/presentation/categorySelectors";
 
-import {
-  loadCatalog,
-} from "../features/catalog/application/catalogThunks";
+import { loadCatalog } from "../features/catalog/application/catalogThunks";
 
-import {
-  loadCreditCards,
-} from "../features/creditCards/application/creditCardThunks";
+import { loadCreditCards } from "../features/creditCards/application/creditCardThunks";
 
-import {
-  loadTransactions,
-} from "../features/transactions/application/transactionThunks";
+import { loadTransactions } from "../features/transactions/application/transactionThunks";
 
-import {
-  selectTransactions,
-} from "../features/transactions/presentation/transactionSelectors";
+import { selectTransactions } from "../features/transactions/presentation/transactionSelectors";
+
+// =====================================================
+// 11.GÜN - 3.18
+//
+// Bütçeler seçilen finansal döneme göre oluşturulduğu
+// için Admin Paneli açıldığında kullanıcının raporlama
+// dönemi ayarları da yüklenir.
+// =====================================================
+
+import { loadReportingSettings } from "../features/reporting/application/reportingThunks";
 
 import CategorySection from "../components/categories/CategorySection";
 
@@ -51,224 +41,117 @@ import ProductAnalysis from "../features/transactions/presentation/components/Pr
 
 import FuelAnalysis from "../features/transactions/presentation/components/FuelAnalysis";
 
-
 // =====================================================
-// 11.GÜN
-// 3.17 kapsamında oluşturulan düzenli gider,
-// fatura ve abonelik yönetim bölümü Admin Paneli'ne
-// taşındı.
+// 11.GÜN - 3.17
 //
-// Ana sayfada artık gösterilmez.
+// Düzenli giderler, faturalar ve abonelikler
+// Admin Paneli içerisinde yönetilir.
 // =====================================================
 
 import RecurringExpenseSection from "../features/recurring/presentation/components/RecurringExpenseSection";
 
+// =====================================================
+// 11.GÜN - 3.18
+//
+// Kategori bütçesi, rollover ve tasarruf hedefi
+// yönetim bölümü Admin Paneli'ne bağlandı.
+// =====================================================
 
-function formatDate(
-  dateValue,
-) {
+import BudgetSection from "../features/budgets/presentation/components/BudgetSection";
+
+function formatDate(dateValue) {
   if (!dateValue) {
     return "-";
   }
 
-  return new Date(
-    dateValue,
-  ).toLocaleString(
-    "tr-TR",
-  );
+  return new Date(dateValue).toLocaleString("tr-TR");
 }
 
+function formatAmount(amountMinor) {
+  return (Number(amountMinor ?? 0) / 100).toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
 
-function formatAmount(
-  amountMinor,
-) {
-  return (
-    Number(
-      amountMinor ?? 0,
-    ) / 100
-  ).toLocaleString(
-    "tr-TR",
-    {
-      minimumFractionDigits:
-        2,
-
-      maximumFractionDigits:
-        2,
-    },
-  );
+    maximumFractionDigits: 2,
+  });
 }
 
-
-function convertInputAmountToMinor(
-  amount,
-) {
-  if (
-    amount === "" ||
-    amount === null ||
-    amount === undefined
-  ) {
+function convertInputAmountToMinor(amount) {
+  if (amount === "" || amount === null || amount === undefined) {
     return 0;
   }
 
   const normalizedAmount =
-    typeof amount ===
-    "string"
-      ? amount.replace(
-          ",",
-          ".",
-        )
-      : amount;
+    typeof amount === "string" ? amount.replace(",", ".") : amount;
 
-  const numericAmount =
-    Number(
-      normalizedAmount,
-    );
+  const numericAmount = Number(normalizedAmount);
 
-  if (
-    !Number.isFinite(
-      numericAmount,
-    )
-  ) {
+  if (!Number.isFinite(numericAmount)) {
     return 0;
   }
 
-  return Math.round(
-    numericAmount *
-      100,
-  );
+  return Math.round(numericAmount * 100);
 }
 
-
-function getTransactionCategoryPathIds(
-  transaction,
-  categories,
-) {
+function getTransactionCategoryPathIds(transaction, categories) {
   if (
-    Array.isArray(
-      transaction.categoryPathIds,
-    ) &&
-    transaction.categoryPathIds.length >
-      0
+    Array.isArray(transaction.categoryPathIds) &&
+    transaction.categoryPathIds.length > 0
   ) {
     return transaction.categoryPathIds;
   }
 
-  if (
-    transaction.categoryId
-  ) {
-    return [
-      transaction.categoryId,
-    ];
+  if (transaction.categoryId) {
+    return [transaction.categoryId];
   }
 
   const expectedCategoryType =
-    transaction.transactionType ===
-    "Gelir"
-      ? "income"
-      : "expense";
+    transaction.transactionType === "Gelir" ? "income" : "expense";
 
-  const matchedCategory =
-    categories.find(
-      (
-        category,
-      ) =>
-        category.name ===
-          transaction.category &&
-        (
-          category.categoryType ===
-            expectedCategoryType ||
-          category.categoryType ===
-            "both"
-        ),
-    );
-
-  return (
-    matchedCategory?.pathIds ??
-    []
+  const matchedCategory = categories.find(
+    (category) =>
+      category.name === transaction.category &&
+      (category.categoryType === expectedCategoryType ||
+        category.categoryType === "both"),
   );
+
+  return matchedCategory?.pathIds ?? [];
 }
 
+function getTransactionCategoryItems(transaction, categories) {
+  if (Array.isArray(transaction.lines) && transaction.lines.length > 0) {
+    return transaction.lines.map((line) => {
+      const lineAmountMinor = Number.isInteger(line.netAmountMinor)
+        ? line.netAmountMinor
+        : Number.isInteger(line.grossAmountMinor)
+          ? line.grossAmountMinor -
+            Number(line.lineDiscountMinor ?? 0) -
+            Number(line.allocatedTransactionDiscountMinor ?? 0)
+          : convertInputAmountToMinor(line.amount);
 
-function getTransactionCategoryItems(
-  transaction,
-  categories,
-) {
-  if (
-    Array.isArray(
-      transaction.lines,
-    ) &&
-    transaction.lines.length >
-      0
-  ) {
-    return transaction.lines.map(
-      (
-        line,
-      ) => {
-        const lineAmountMinor =
-          Number.isInteger(
-            line.netAmountMinor,
-          )
-            ? line.netAmountMinor
-            : Number.isInteger(
-                  line.grossAmountMinor,
-                )
-              ? line.grossAmountMinor -
-                Number(
-                  line.lineDiscountMinor ??
-                    0,
-                ) -
-                Number(
-                  line.allocatedTransactionDiscountMinor ??
-                    0,
-                )
-              : convertInputAmountToMinor(
-                  line.amount,
-                );
+      return {
+        categoryId: line.categoryId ?? "",
 
-        return {
-          categoryId:
-            line.categoryId ??
-            "",
+        categoryPathIds: Array.isArray(line.categoryPathIds)
+          ? line.categoryPathIds
+          : line.categoryId
+            ? [line.categoryId]
+            : [],
 
-          categoryPathIds:
-            Array.isArray(
-              line.categoryPathIds,
-            )
-              ? line.categoryPathIds
-              : line.categoryId
-                ? [
-                    line.categoryId,
-                  ]
-                : [],
-
-          amountMinor:
-            lineAmountMinor,
-        };
-      },
-    );
+        amountMinor: lineAmountMinor,
+      };
+    });
   }
 
   return [
     {
-      categoryId:
-        transaction.categoryId ??
-        "",
+      categoryId: transaction.categoryId ?? "",
 
-      categoryPathIds:
-        getTransactionCategoryPathIds(
-          transaction,
-          categories,
-        ),
+      categoryPathIds: getTransactionCategoryPathIds(transaction, categories),
 
-      amountMinor:
-        Number(
-          transaction.amountMinor ??
-            0,
-        ),
+      amountMinor: Number(transaction.amountMinor ?? 0),
     },
   ];
 }
-
 
 // =====================================================
 // 10.GÜN
@@ -276,221 +159,168 @@ function getTransactionCategoryItems(
 // için Admin sayfası oluşturuldu.
 // =====================================================
 
-
 // =====================================================
 // 11.GÜN
-// Düzenli giderler, faturalar ve abonelikler
-// Admin Paneli içerisine taşındı.
 //
-// Böylece yönetim ağırlıklı özellikler tek bir
-// ekranda toplanmış oldu.
+// Admin Paneli yönetim özellikleri genişletildi.
+//
+// 3.17:
+// Düzenli giderler, faturalar ve abonelikler.
+//
+// 3.18:
+// Kategori bütçeleri, rollover ve tasarruf hedefleri.
+//
+// aynı yönetim ekranında toplandı.
 // =====================================================
 
-function Admin({
-  onNavigateHome,
-}) {
-  const dispatch =
-    useDispatch();
+function Admin({ onNavigateHome }) {
+  const dispatch = useDispatch();
 
-  const currentUser =
-    useSelector(
-      selectCurrentUser,
-    );
+  const currentUser = useSelector(selectCurrentUser);
 
-  const authStatus =
-    useSelector(
-      selectAuthStatus,
-    );
+  const authStatus = useSelector(selectAuthStatus);
 
-  const transactions =
-    useSelector(
-      selectTransactions,
-    );
+  const transactions = useSelector(selectTransactions);
 
-  const activeCategories =
-    useSelector(
-      selectActiveCategories,
-    );
+  const activeCategories = useSelector(selectActiveCategories);
 
-  const isLoggingOut =
-    authStatus ===
-    "loading";
+  const isLoggingOut = authStatus === "loading";
 
+  // =====================================================
+  // 10.GÜN
+  // Kategori yönetim ekranında gösterilen gelir ve gider
+  // toplamları hesaplanır.
+  //
+  // Parent kategoriler kendi descendant kategorilerinin
+  // tutarlarını da kapsar.
+  // =====================================================
 
-  const categoryTotals =
-    useMemo(
-      () => {
-        const totals = {};
+  const categoryTotals = useMemo(() => {
+    const totals = {};
 
-        activeCategories.forEach(
-          (
-            category,
-          ) => {
-            totals[
-              category.id
-            ] = {
-              incomeMinor:
-                0,
+    activeCategories.forEach((category) => {
+      totals[category.id] = {
+        incomeMinor: 0,
 
-              expenseMinor:
-                0,
-            };
-          },
-        );
+        expenseMinor: 0,
+      };
+    });
 
-        transactions.forEach(
-          (
-            transaction,
-          ) => {
-            const categoryItems =
-              getTransactionCategoryItems(
-                transaction,
-                activeCategories,
-              );
-
-            categoryItems.forEach(
-              (
-                categoryItem,
-              ) => {
-                categoryItem.categoryPathIds.forEach(
-                  (
-                    pathCategoryId,
-                  ) => {
-                    if (
-                      !totals[
-                        pathCategoryId
-                      ]
-                    ) {
-                      return;
-                    }
-
-                    if (
-                      transaction.transactionType ===
-                      "Gelir"
-                    ) {
-                      totals[
-                        pathCategoryId
-                      ].incomeMinor +=
-                        categoryItem.amountMinor;
-                    } else if (
-                      transaction.transactionType ===
-                      "İade"
-                    ) {
-                      totals[
-                        pathCategoryId
-                      ].expenseMinor -=
-                        categoryItem.amountMinor;
-                    } else {
-                      totals[
-                        pathCategoryId
-                      ].expenseMinor +=
-                        categoryItem.amountMinor;
-                    }
-                  },
-                );
-              },
-            );
-          },
-        );
-
-        return totals;
-      },
-      [
+    transactions.forEach((transaction) => {
+      const categoryItems = getTransactionCategoryItems(
+        transaction,
         activeCategories,
-        transactions,
-      ],
-    );
+      );
 
+      categoryItems.forEach((categoryItem) => {
+        categoryItem.categoryPathIds.forEach((pathCategoryId) => {
+          if (!totals[pathCategoryId]) {
+            return;
+          }
+
+          if (transaction.transactionType === "Gelir") {
+            totals[pathCategoryId].incomeMinor += categoryItem.amountMinor;
+
+            return;
+          }
+
+          if (transaction.transactionType === "İade") {
+            totals[pathCategoryId].expenseMinor -= categoryItem.amountMinor;
+
+            return;
+          }
+
+          totals[pathCategoryId].expenseMinor += categoryItem.amountMinor;
+        });
+      });
+    });
+
+    return totals;
+  }, [activeCategories, transactions]);
 
   // =====================================================
   // 11.GÜN
-  // Admin ekranı açıldığında kategori, katalog,
-  // kredi kartı ve işlem verileri yüklenir.
+  // Admin Paneli açıldığında yönetim ve analiz
+  // bölümleri için gerekli temel veriler yüklenir.
   //
-  // RecurringExpenseSection kendi recurring verilerini
-  // kendi içerisinde yüklediği için burada tekrar
-  // loadRecurringRules çağrılmaz.
+  // 3.18 bütçe hesaplamalarının doğru finansal dönemi
+  // kullanabilmesi için reporting settings de burada
+  // yüklenir.
+  //
+  // RecurringExpenseSection ve BudgetSection kendi
+  // verilerini kendi componentleri içerisinde yükler.
   // =====================================================
 
-  useEffect(
-    () => {
-      if (
-        !currentUser?.id
-      ) {
-        return;
-      }
+  useEffect(() => {
+    if (!currentUser?.id) {
+      return;
+    }
 
-      dispatch(
-        loadTransactions(
-          currentUser.id,
-        ),
-      );
+    // =====================================================
+    // İşlemler kategori bütçesi ve analizlerde kullanılır.
+    // =====================================================
 
-      dispatch(
-        loadCategories(
-          currentUser.id,
-        ),
-      );
+    dispatch(loadTransactions(currentUser.id));
 
-      dispatch(
-        loadCatalog(
-          currentUser.id,
-        ),
-      );
+    // =====================================================
+    // Kategoriler hem kategori yönetiminde hem 3.18
+    // bütçe oluşturma ekranında kullanılır.
+    // =====================================================
 
-      dispatch(
-        loadCreditCards(
-          currentUser.id,
-        ),
-      );
-    },
-    [
-      dispatch,
-      currentUser?.id,
-    ],
-  );
+    dispatch(loadCategories(currentUser.id));
 
+    // =====================================================
+    // Firma, şube, marka ve ürün katalogları yüklenir.
+    // =====================================================
 
-  const handleLogout =
-    async () => {
-      await dispatch(
-        logoutUser(),
-      );
-    };
+    dispatch(loadCatalog(currentUser.id));
 
+    // =====================================================
+    // Kredi kartı yönetimi için kartlar yüklenir.
+    // =====================================================
+
+    dispatch(loadCreditCards(currentUser.id));
+
+    // =====================================================
+    // 11.GÜN - 3.18
+    //
+    // Aktif bütçe dönemi kullanıcının seçtiği finansal
+    // döneme bağlı olduğu için raporlama ayarları
+    // Firestore'dan yüklenir.
+    // =====================================================
+
+    dispatch(loadReportingSettings(currentUser.id));
+  }, [dispatch, currentUser?.id]);
+
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+  };
 
   return (
     <div className="page-container dashboard-page-container">
       <div className="welcome-card transaction-card">
         {/* =====================================================
             10.GÜN
-            Admin sayfasına geri dönüş ve çıkış işlemleri
-            eklendi.
+            Admin sayfasına ana sayfaya dönüş ve çıkış
+            işlemleri eklendi.
             ===================================================== */}
 
         <div className="dashboard-header admin-header">
           <div className="dashboard-header-content">
-            <h1 className="welcome-title">
-              Admin Paneli
-            </h1>
+            <h1 className="welcome-title">Admin Paneli</h1>
 
             <p className="page-description">
               Yönetim ve analiz bölümlerine erişim sağlandı.
             </p>
 
-            <p className="user-email">
-              {currentUser?.email}
-            </p>
+            <p className="user-email">{currentUser?.email}</p>
           </div>
-
 
           <div className="dashboard-header-actions">
             <button
               className="home-button"
               type="button"
-              onClick={
-                onNavigateHome
-              }
+              onClick={onNavigateHome}
             >
               Ana Sayfaya Dön
             </button>
@@ -498,54 +328,40 @@ function Admin({
             <button
               className="logout-button dashboard-logout-button"
               type="button"
-              onClick={
-                handleLogout
-              }
-              disabled={
-                isLoggingOut
-              }
+              onClick={handleLogout}
+              disabled={isLoggingOut}
             >
-              {isLoggingOut
-                ? "Çıkış Yapılıyor..."
-                : "Çıkış Yap"}
+              {isLoggingOut ? "Çıkış Yapılıyor..." : "Çıkış Yap"}
             </button>
           </div>
         </div>
 
-
         {/* =====================================================
-            Kategori yönetimi
+            Kategori Yönetimi
             ===================================================== */}
 
         <CategorySection
-          categoryTotals={
-            categoryTotals
-          }
-          formatAmount={
-            formatAmount
-          }
+          categoryTotals={categoryTotals}
+          formatAmount={formatAmount}
         />
 
-
         {/* =====================================================
-            Firma, şube, marka ve ürün katalog yönetimi
+            Firma / Şube / Marka / Ürün Yönetimi
             ===================================================== */}
 
         <CatalogSection />
 
-
         {/* =====================================================
-            Kredi kartı yönetimi ve analizleri
+            Kredi Kartı Yönetimi
             ===================================================== */}
 
         <CreditCardSection />
 
-
         {/* =====================================================
             11.GÜN - 3.17
+            DÜZENLİ GİDERLER VE ABONELİKLER
 
-            Düzenli giderler, faturalar ve abonelikler
-            Admin Paneli içerisine taşındı.
+            Bu bölüm Admin Paneli içerisinde tutulur.
 
             Kullanıcı burada:
 
@@ -554,42 +370,46 @@ function Admin({
             - sigorta,
             - abonelik
 
-            gibi tekrar eden giderleri yönetebilir.
+            gibi tekrar eden giderleri tanımlayabilir.
 
             Forecast kayıtları gerçek transaction değildir.
-            Gerçek ödeme yapıldığında normal gider kaydı
-            oluşturulur ve forecast paid durumuna geçirilir.
+
+            Gerçek ödeme yapıldığında actual tutar kaydedilir
+            ve normal gider transaction'ı oluşturulur.
             ===================================================== */}
 
         <RecurringExpenseSection />
 
-
         {/* =====================================================
-            Ürün fiyat analizi
+            11.GÜN - 3.18
+            BÜTÇE VE HEDEFLER
+
+            Kullanıcı burada:
+
+            - kategori bütçesi oluşturabilir,
+            - kategori ağacını bütçeye dahil edebilir,
+            - bütçe limitini görebilir,
+            - kullanılan ve kalan tutarı takip edebilir,
+            - rollover kullanabilir,
+            - tasarruf hedefi belirleyebilir.
+
+            Bütçe hesapları aktif finansal dönem ve
+            gerçek transaction kayıtlarına göre yapılır.
             ===================================================== */}
 
-        <ProductAnalysis
-          formatDate={
-            formatDate
-          }
-          formatAmount={
-            formatAmount
-          }
-        />
-
+        <BudgetSection />
 
         {/* =====================================================
-            Yakıt analizi
+            Ürün Fiyat Analizi
             ===================================================== */}
 
-        <FuelAnalysis
-          formatDate={
-            formatDate
-          }
-          formatAmount={
-            formatAmount
-          }
-        />
+        <ProductAnalysis formatDate={formatDate} formatAmount={formatAmount} />
+
+        {/* =====================================================
+            Yakıt Analizi
+            ===================================================== */}
+
+        <FuelAnalysis formatDate={formatDate} formatAmount={formatAmount} />
       </div>
     </div>
   );

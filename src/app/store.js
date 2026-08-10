@@ -18,6 +18,16 @@ import reportingReducer from "../features/reporting/presentation/reportingSlice"
 
 import recurringReducer from "../features/recurring/presentation/recurringSlice";
 
+// =====================================================
+// 11.GÜN - 3.18
+//
+// Kategori bütçeleri, rollover bilgileri ve tasarruf
+// hedeflerinin uygulama genelinde Redux üzerinden
+// kullanılabilmesi için budget reducer store'a eklendi.
+// =====================================================
+
+import budgetReducer from "../features/budgets/presentation/budgetSlice";
+
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -44,9 +54,10 @@ export const store = configureStore({
     reporting: reportingReducer,
 
     // =====================================================
-    // 11.GÜN
+    // 11.GÜN - 3.17
+    //
     // Düzenli gider, abonelik ve forecast kayıtları
-    // Redux store içerisine eklendi.
+    // Redux store içerisinde tutulur.
     //
     // Burada:
     //
@@ -55,9 +66,27 @@ export const store = configureStore({
     // - ödenmiş forecast kayıtları,
     // - tahmin / gerçek tutar bilgileri
     //
-    // tutulacaktır.
+    // saklanır.
     // =====================================================
 
     recurring: recurringReducer,
+
+    // =====================================================
+    // 11.GÜN - 3.18
+    //
+    // Bütçe ve hedef bilgileri Redux store'a eklendi.
+    //
+    // Burada:
+    //
+    // - kategori bütçeleri,
+    // - kategori ağacı bütçeleri,
+    // - rollover bilgileri,
+    // - tasarruf hedefleri,
+    // - bütçe yükleme/güncelleme durumları
+    //
+    // tutulur.
+    // =====================================================
+
+    budgets: budgetReducer,
   },
 });
