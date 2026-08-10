@@ -38,42 +38,17 @@ import {
 
 import { selectCurrentUser } from "../../../auth/presentation/authSelectors";
 
-// =====================================================
-// 9.GÜN
-// Kredi kartı ekleme, listeleme ve aktiflik yönetimi
-// Redux ve repository katmanları kullanılarak oluşturuldu.
-// =====================================================
+import CreditCardAggregateAnalysis from "./CreditCardAggregateAnalysis";
 
 // =====================================================
 // 11.GÜN
-// Kredi kartlarına ait taksit planları Redux üzerinden
-// alınarak kartların altında aylık taksit özeti gösterildi.
+// Kredi kartları bölümü düzenlendi.
 //
-// Kullanıcıya teknik taksit kayıtları yerine yalnızca bu ay
-// ve gelecek aylarda ödenecek anlaşılır tutarlar gösterilir.
-// =====================================================
-
-// =====================================================
-// DÜZENLEME
-// Müdürün isteği doğrultusunda hesap kesim günü ve kalan
-// limit bilgileri kredi kartı kullanıcı arayüzünden kaldırıldı.
+// Kullanıcının ekranı daha rahat anlayabilmesi için
+// önce kredi kartlarının kendi bilgileri gösterilir.
 //
-// Taksit hesaplamasının çalışmaya devam etmesi için gerekli
-// teknik kesim günü kullanıcıya gösterilmeden sistemde tutulur.
-// =====================================================
-
-// =====================================================
-// 11.GÜN
-// Kredi kartlarının ekstre dönemleri kullanıcıya gösterildi.
-//
-// Ekstre ödemesi yeni gider oluşturmadan paidAmountMinor
-// alanını artırır ve son ödeme tarihi manuel değiştirilebilir.
-// =====================================================
-
-// =====================================================
-// 11.GÜN
-// PDF 3.14 kapsamında satın alma davranışı ile ödeme yükü
-// dört ayrı finansal değer olarak kredi kartında gösterildi.
+// Kartların detaylarından sonra bütün kredi kartlarını
+// birlikte değerlendiren toplu yük analizi gösterilir.
 // =====================================================
 
 function formatAmount(amountMinor) {
@@ -156,13 +131,9 @@ function CreditCardSection() {
 
   const resetForm = () => {
     setName("");
-
     setIssuer("");
-
     setLastFourDigits("");
-
     setLimit("");
-
     setCreditCardFormError("");
   };
 
@@ -217,10 +188,20 @@ function CreditCardSection() {
 
         limit,
 
-        // DÜZENLEME - Kesim günü kullanıcıdan istenmeden teknik hesap için ayın son günü kullanılır.
+        // =====================================================
+        // 11.GÜN
+        // Kesim günü kullanıcıdan ayrıca istenmeden
+        // sistem içerisinde teknik hesaplamalar için tutulur.
+        // =====================================================
+
         statementDay: 31,
 
-        // 11.GÜN - Son ödeme günü kullanıcı arayüzünü karmaşıklaştırmadan teknik olarak varsayılan 10 kullanılır.
+        // =====================================================
+        // 11.GÜN
+        // Son ödeme günü teknik hesaplamalarda kullanılmak
+        // üzere varsayılan değer olarak tutulur.
+        // =====================================================
+
         dueDay: 10,
 
         linkedPaymentAccountId: "",
@@ -301,6 +282,11 @@ function CreditCardSection() {
   return (
     <section>
       <h2 className="section-title">Kredi Kartları</h2>
+
+      {/* =====================================================
+          11.GÜN
+          Yeni kredi kartı ekleme formu.
+          ===================================================== */}
 
       <form className="category-action-panel" onSubmit={handleAddCreditCard}>
         <div className="form-row">
@@ -407,6 +393,15 @@ function CreditCardSection() {
         <p className="empty-message">Ekstreler yükleniyor...</p>
       )}
 
+      {/* =====================================================
+          11.GÜN
+          Önce kullanıcının sahip olduğu kredi kartları ve
+          bu kartlara ait ayrıntılı bilgiler gösterilir.
+
+          Böylece kullanıcı toplu analize geçmeden önce
+          hangi kartların hesaplamaya dahil olduğunu görebilir.
+          ===================================================== */}
+
       {creditCards.length > 0 && (
         <div className="category-form-grid">
           {creditCards.map((creditCard) => {
@@ -463,7 +458,12 @@ function CreditCardSection() {
                   {creditCard.isActive ? "Aktif" : "Kapalı"}
                 </p>
 
-                {/* 11.GÜN - Satın alma davranışı ve ödeme yükü PDF 3.14 kurallarına göre ayrı gösterilir. */}
+                {/* =====================================================
+                      11.GÜN
+                      Kartın bu dönem yaptığı yeni harcama ile
+                      önceki dönemlerden gelen ödeme yükü ayrı tutulur.
+                      ===================================================== */}
+
                 <div className="installment-summary-panel">
                   <h4>Satın Alma ve Ödeme Yükü</h4>
 
@@ -486,8 +486,8 @@ function CreditCardSection() {
                   </div>
 
                   <p>
-                    Bu tutar, bu kart döneminde yeni yaptığınız alışverişlerin
-                    tam tutarıdır.
+                    Bu tutar, mevcut kart döneminde yeni yapılan alışverişleri
+                    gösterir.
                   </p>
 
                   <div className="installment-current-total">
@@ -502,8 +502,8 @@ function CreditCardSection() {
                   </div>
 
                   <p>
-                    Bu tutar, önceki dönem alışverişlerinden bu ekstreye düşen
-                    taksitleri gösterir.
+                    Önceki aylarda yapılan alışverişlerin bu döneme düşen
+                    taksitlerini gösterir.
                   </p>
 
                   <div className="installment-current-total">
@@ -533,6 +533,12 @@ function CreditCardSection() {
                     </strong>
                   </div>
                 </div>
+
+                {/* =====================================================
+                      11.GÜN
+                      Kartın mevcut ve gelecek aylardaki
+                      taksit yükleri gösterilir.
+                      ===================================================== */}
 
                 <div className="installment-summary-panel">
                   <div className="installment-current-total">
@@ -571,6 +577,12 @@ function CreditCardSection() {
                     </p>
                   )}
                 </div>
+
+                {/* =====================================================
+                      11.GÜN
+                      Karta ait ekstre dönemleri ve kalan
+                      borç bilgileri gösterilir.
+                      ===================================================== */}
 
                 <div className="category-action-panel">
                   <h4>Ekstreler</h4>
@@ -694,6 +706,22 @@ function CreditCardSection() {
           })}
         </div>
       )}
+
+      {/* =====================================================
+          11.GÜN
+          Kredi kartlarının kendi bilgileri gösterildikten sonra
+          çoklu kredi kartı toplu yük analizi gösterilir.
+
+          Böylece ekranın sıralaması:
+
+          1. Kredi kartını ekle
+          2. Kartlarını ve detaylarını incele
+          3. Bütün kartların toplam finansal yükünü analiz et
+
+          şeklinde daha anlaşılır hale getirildi.
+          ===================================================== */}
+
+      {creditCards.length > 0 && <CreditCardAggregateAnalysis />}
 
       {creditCardFormError && (
         <p className="form-error" role="alert">
