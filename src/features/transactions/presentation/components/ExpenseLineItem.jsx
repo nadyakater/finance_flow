@@ -35,8 +35,11 @@ function getNumericValue(value) {
 function getFuelTypeLabel(fuelType) {
   const fuelTypeLabels = {
     gasoline: "Benzin",
+
     diesel: "Motorin",
+
     lpg: "LPG",
+
     other: "Diğer",
   };
 
@@ -69,6 +72,7 @@ function ExpenseLineItem({
 
   const fuelUnitPrice = getNumericValue(line.fuelUnitPrice);
 
+  // DÜZENLEME - Yakıt toplamı litre ve litre fiyatından otomatik hesaplanır.
   const calculatedFuelTotal =
     liters > 0 && fuelUnitPrice > 0 ? liters * fuelUnitPrice : 0;
 
@@ -201,8 +205,11 @@ function ExpenseLineItem({
                 required
               >
                 <option value="gasoline">Benzin</option>
+
                 <option value="diesel">Motorin</option>
+
                 <option value="lpg">LPG</option>
+
                 <option value="other">Diğer</option>
               </select>
             </div>
@@ -299,13 +306,14 @@ function ExpenseLineItem({
               />
             </div>
 
-            {/* DÜZENLEME - Yakıt tutarının kullanıcı tarafından tekrar girilmesi kaldırılarak otomatik hesaplanan toplam gösterildi. */}
+            {/* DÜZENLEME - Yakıt tutarı kullanıcıdan tekrar istenmeden otomatik hesaplanan toplam gösterilir. */}
             <div className="fuel-calculated-total">
               <span className="form-label">Hesaplanan Yakıt Toplamı</span>
 
               <strong>
                 {calculatedFuelTotal.toLocaleString("tr-TR", {
                   minimumFractionDigits: 2,
+
                   maximumFractionDigits: 2,
                 })}{" "}
                 ₺
@@ -318,6 +326,7 @@ function ExpenseLineItem({
                 L ×{" "}
                 {fuelUnitPrice.toLocaleString("tr-TR", {
                   minimumFractionDigits: 2,
+
                   maximumFractionDigits: 2,
                 })}{" "}
                 ₺
@@ -374,6 +383,7 @@ function ExpenseLineItem({
         )}
 
         {/* DÜZENLEME - Satır indirimi kaldırılarak gider satırındaki alan sayısı azaltıldı. */}
+
         <div className="expense-line-note-field">
           <label className="form-label" htmlFor={`lineNote-${line.id}`}>
             Açıklama

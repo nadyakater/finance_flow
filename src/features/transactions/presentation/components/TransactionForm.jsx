@@ -93,33 +93,25 @@ function calculateFuelTotalMinor(liters, fuelUnitPrice) {
 
 // =====================================================
 // 7.GÜN
-// Gelir ve çok satırlı gider kayıt formu.
+// Gelir ve çok satırlı gider kayıt formu oluşturuldu.
 //
-// Kalıcı veriler Redux üzerinden alınır.
-// Firebase'e doğrudan erişilmez.
-//
+// Kalıcı veriler Redux üzerinden alınır ve Firebase'e
+// doğrudan erişim yapılmaz.
+// =====================================================
+
+// =====================================================
 // 8.GÜN
 // Yakıt ürünleri için yakıt türü, litre, litre fiyatı,
-// araç ve odometre alanları eklendi.
-// Litre × litre fiyatı ile satır toplamı doğrulanır.
-//
-// Fiş/fatura dosyası yükleme özelliği kaldırıldı.
+// araç ve odometre alanları desteklendi.
 // =====================================================
 
 // =====================================================
 // 11.GÜN
 // Kredi kartıyla yapılan giderlerde tek çekim veya taksitli
 // ödeme seçilebilmesi için sade ödeme alanları eklendi.
-//
-// Kullanıcı yalnızca ödeme şeklini ve gerekiyorsa taksit
-// sayısını seçer. Ekstre ve taksit tutarları otomatik hesaplanır.
 // =====================================================
 
-function TransactionForm({
-  getTodayDateValue,
-  convertInputAmountToMinor,
-  formatAmount,
-}) {
+function TransactionForm() {
   const dispatch = useDispatch();
 
   const currentUser = useSelector(selectCurrentUser);
@@ -130,15 +122,44 @@ function TransactionForm({
 
   const categoryLoadStatus = useSelector(selectCategoryLoadStatus);
 
+  const products = useSelector(selectProducts);
+
+  const brands = useSelector(selectBrands);
+
   const merchants = useSelector(selectMerchants);
 
   const branches = useSelector(selectBranches);
 
-  const brands = useSelector(selectBrands);
-
-  const products = useSelector(selectProducts);
-
   const activeCreditCards = useSelector(selectActiveCreditCards);
+
+  const getTodayDateValue = () => {
+    const today = new Date();
+
+    const year = today.getFullYear();
+
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatAmount = (amountMinor) =>
+    (Number(amountMinor ?? 0) / 100).toLocaleString("tr-TR", {
+      minimumFractionDigits: 2,
+
+      maximumFractionDigits: 2,
+    });
+
+  const convertInputAmountToMinor = (value) => {
+    const numericValue = getSafeNumber(value);
+
+    if (numericValue <= 0) {
+      return 0;
+    }
+
+    return Math.round(numericValue * 100);
+  };
 
   const [transactionType, setTransactionType] = useState("Gelir");
 
@@ -236,7 +257,7 @@ function TransactionForm({
         0,
       ),
     };
-  }, [convertInputAmountToMinor, expenseLines, transactionDiscount]);
+  }, [expenseLines, transactionDiscount]);
 
   useEffect(() => {
     if (transactionType !== "Gelir") {
@@ -314,7 +335,7 @@ function TransactionForm({
     }
   }, [activeCreditCards, paymentMethod, selectedCreditCardId, transactionType]);
 
-  // 11.GÜN - Kredi kartı dışındaki ödeme yöntemlerine geçildiğinde taksit bilgileri başlangıç değerlerine döndürülür.
+  // 11.GÜN - Kredi kartı dışındaki ödeme yöntemlerinde taksit bilgileri başlangıç değerlerine döndürülür.
   useEffect(() => {
     if (transactionType !== "Gider" || paymentMethod !== "Kredi Kartı") {
       setInstallmentType("single");
@@ -502,7 +523,7 @@ function TransactionForm({
 
               liters: "",
 
-              fuelUnitPrice: "",
+              fuelUnitPrice: selectedProduct.defaultUnitPrice ?? "",
 
               vehicleId: "",
 
@@ -533,13 +554,13 @@ function TransactionForm({
 
             purchaseQuantity: "1",
 
-            unitCount: "1",
+            unitCount: String(selectedProduct.unitCount ?? 1),
 
-            unitSize: "1",
+            unitSize: String(selectedProduct.unitSize ?? 1),
 
-            unitType: "adet",
+            unitType: selectedProduct.unitType ?? "adet",
 
-            unitPrice: "",
+            unitPrice: selectedProduct.defaultUnitPrice ?? "",
 
             fuelType: "",
 
@@ -582,42 +603,43 @@ function TransactionForm({
   };
 
   const prepareExpenseLines = () => {
-    const preparedExpenseLines = [];
+    if (expenseLines.length === 0) {
+      throw new Error("En az bir gider satırı eklemelisiniz.");
+    }
 
-    for (let index = 0; index < expenseLines.length; index += 1) {
-      const expenseLine = expenseLines[index];
+    return expenseLines.map((expenseLine, index) => {
+      const lineNumber = index + 1;
 
       const selectedLineCategory = activeCategories.find(
         (category) => category.id === expenseLine.categoryId,
       );
 
       if (!selectedLineCategory) {
-        throw new Error(`${index + 1}. gider satırı için kategori seçiniz.`);
+        throw new Error(`${lineNumber}. gider satırı için kategori seçiniz.`);
       }
 
       const lineAmount = getSafeNumber(expenseLine.amount);
 
-      const lineDiscount = getSafeNumber(expenseLine.discount);
-
       if (lineAmount <= 0) {
         throw new Error(
-          `${index + 1}. gider satırının tutarı sıfırdan büyük olmalıdır.`,
+          `${lineNumber}. gider satırının tutarı sıfırdan büyük olmalıdır.`,
         );
       }
+
+      const lineDiscount = getSafeNumber(expenseLine.discount);
 
       if (lineDiscount < 0 || lineDiscount > lineAmount) {
         throw new Error(
-          `${index + 1}. gider satırındaki indirim tutarı geçersizdir.`,
+          `${lineNumber}. gider satırındaki indirim tutarı geçersizdir.`,
         );
       }
 
-      const selectedProduct = products.find(
-        (product) => product.id === expenseLine.productId,
-      );
+      const selectedProduct =
+        products.find((product) => product.id === expenseLine.productId) ??
+        null;
 
-      const selectedBrand = brands.find(
-        (brand) => brand.id === expenseLine.brandId,
-      );
+      const selectedBrand =
+        brands.find((brand) => brand.id === expenseLine.brandId) ?? null;
 
       const isFuelProduct =
         selectedProduct?.productType === "fuel" ||
@@ -630,13 +652,13 @@ function TransactionForm({
 
         if (liters <= 0) {
           throw new Error(
-            `${index + 1}. yakıt satırındaki litre miktarı sıfırdan büyük olmalıdır.`,
+            `${lineNumber}. yakıt satırındaki litre miktarı sıfırdan büyük olmalıdır.`,
           );
         }
 
         if (fuelUnitPrice <= 0) {
           throw new Error(
-            `${index + 1}. yakıt satırındaki litre fiyatı sıfırdan büyük olmalıdır.`,
+            `${lineNumber}. yakıt satırındaki litre fiyatı sıfırdan büyük olmalıdır.`,
           );
         }
 
@@ -654,14 +676,14 @@ function TransactionForm({
           FUEL_TOTAL_TOLERANCE_MINOR
         ) {
           throw new Error(
-            `${index + 1}. yakıt satırının toplamı ${formatAmount(
+            `${lineNumber}. yakıt satırının toplamı ${formatAmount(
               expectedFuelTotalMinor,
             )} ₺ olmalıdır.`,
           );
         }
       }
 
-      preparedExpenseLines.push({
+      return {
         id: expenseLine.id,
 
         categoryId: selectedLineCategory.id,
@@ -685,16 +707,18 @@ function TransactionForm({
         brandName: selectedBrand?.name ?? selectedProduct?.brandName ?? "",
 
         purchaseQuantity: isFuelProduct
-          ? expenseLine.liters
+          ? "1"
           : expenseLine.purchaseQuantity || "1",
 
-        unitCount: "1",
+        unitCount: isFuelProduct ? "1" : expenseLine.unitCount || "1",
 
-        unitSize: "1",
+        unitSize: isFuelProduct ? "1" : expenseLine.unitSize || "1",
 
-        unitType: isFuelProduct ? "l" : "adet",
+        unitType: isFuelProduct ? "l" : expenseLine.unitType || "adet",
 
-        unitPrice: "",
+        unitPrice: isFuelProduct
+          ? expenseLine.fuelUnitPrice
+          : expenseLine.unitPrice,
 
         fuelType: isFuelProduct
           ? expenseLine.fuelType || selectedProduct?.fuelType || "other"
@@ -710,13 +734,11 @@ function TransactionForm({
 
         amount: expenseLine.amount,
 
-        discount: expenseLine.discount || 0,
+        discount: expenseLine.discount || "0",
 
-        note: expenseLine.note,
-      });
-    }
-
-    return preparedExpenseLines;
+        note: expenseLine.note?.trim() ?? "",
+      };
+    });
   };
 
   const handleAddTransaction = async (event) => {
@@ -728,6 +750,12 @@ function TransactionForm({
       setTransactionFormError(
         "İşlem oluşturmak için kullanıcı oturumu bulunamadı.",
       );
+
+      return;
+    }
+
+    if (!transactionDate) {
+      setTransactionFormError("İşlem tarihi seçilmelidir.");
 
       return;
     }
@@ -794,13 +822,19 @@ function TransactionForm({
           branchName: "",
         };
       } else {
+        if (transactionCategoryOptions.length === 0) {
+          throw new Error(
+            "Gider kategorisi bulunmuyor. Önce gider türünde bir kategori oluşturunuz.",
+          );
+        }
+
         if (paymentMethod === "Kredi Kartı" && !selectedCreditCard) {
           throw new Error(
             "Kredi kartıyla yapılan gider için kart seçmelisiniz.",
           );
         }
 
-        // 11.GÜN - Taksitli kredi kartı giderinde taksit sayısının geçerli aralıkta olması form seviyesinde kontrol edilir.
+        // 11.GÜN - Taksitli kredi kartı giderinde taksit sayısı form seviyesinde kontrol edilir.
         if (
           paymentMethod === "Kredi Kartı" &&
           installmentType === "installment"
@@ -818,18 +852,28 @@ function TransactionForm({
 
         const preparedExpenseLines = prepareExpenseLines();
 
+        const totalAfterLineDiscountMinor =
+          expenseTotals.subtotalMinor - expenseTotals.lineDiscountTotalMinor;
+
+        if (
+          expenseTotals.transactionDiscountMinor > totalAfterLineDiscountMinor
+        ) {
+          throw new Error(
+            "Genel indirim, satır indirimleri sonrasındaki tutardan büyük olamaz.",
+          );
+        }
+
         if (expenseTotals.netTotalMinor <= 0) {
           throw new Error("Gider toplamı sıfırdan büyük olmalıdır.");
         }
-
-        const selectedBranch =
-          merchantBranches.find((branch) => branch.id === branchId) ?? null;
 
         const firstLineCategory = activeCategories.find(
           (category) => category.id === preparedExpenseLines[0].categoryId,
         );
 
-        // 10.GÜN - Gider toplamının kullanıcıdan tekrar alınması yerine satır ve indirimlerden otomatik hesaplanması sağlandı.
+        const selectedBranch =
+          merchantBranches.find((branch) => branch.id === branchId) ?? null;
+
         transactionPayload = {
           userId: currentUser.id,
 
@@ -845,7 +889,8 @@ function TransactionForm({
 
           categoryType: firstLineCategory?.categoryType ?? "expense",
 
-          amount: expenseTotals.netTotalMinor / 100,
+          // 8.GÜN - Gider toplamı kullanıcıdan tekrar alınmadan gider satırları ve indirimlerden hesaplanır.
+          amount: (expenseTotals.netTotalMinor / 100).toFixed(2),
 
           lines: preparedExpenseLines,
 
@@ -865,7 +910,7 @@ function TransactionForm({
           installmentType:
             paymentMethod === "Kredi Kartı" ? installmentType : "none",
 
-          // 11.GÜN - Tek çekimde bir, taksitli işlemde kullanıcının seçtiği taksit sayısı repository katmanına iletilir.
+          // 11.GÜN - Tek çekimde bir, taksitli işlemde seçilen taksit sayısı repository katmanına iletilir.
           installmentCount:
             paymentMethod === "Kredi Kartı"
               ? installmentType === "installment"
@@ -885,7 +930,7 @@ function TransactionForm({
         };
       }
     } catch (error) {
-      setTransactionFormError(error.message);
+      setTransactionFormError(error.message || "Finansal kayıt hazırlanamadı.");
 
       return;
     }
@@ -922,6 +967,7 @@ function TransactionForm({
               value={transactionType}
               onChange={handleTransactionTypeChange}
               disabled={isSaving}
+              required
             >
               <option value="Gelir">Gelir</option>
 
@@ -968,82 +1014,80 @@ function TransactionForm({
 
               <option value="Dijital Cüzdan">Dijital Cüzdan</option>
 
+              <option value="Havale / EFT">Havale / EFT</option>
+
               <option value="Diğer">Diğer</option>
             </select>
           </div>
         </div>
 
         {transactionType === "Gider" && paymentMethod === "Kredi Kartı" && (
-          <>
-            <div className="form-row">
+          <div className="form-row">
+            <div>
+              <label className="form-label" htmlFor="transactionCreditCard">
+                Kullanılan Kredi Kartı *
+              </label>
+
+              <select
+                id="transactionCreditCard"
+                className="form-input"
+                value={selectedCreditCardId}
+                onChange={(event) =>
+                  setSelectedCreditCardId(event.target.value)
+                }
+                disabled={isSaving}
+                required
+              >
+                <option value="">Kredi kartı seçiniz</option>
+
+                {activeCreditCards.map((creditCard) => (
+                  <option key={creditCard.id} value={creditCard.id}>
+                    {creditCard.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 11.GÜN - Kullanıcıya tek çekim veya taksitli ödeme seçeneği gösterilir. */}
+            <div>
+              <label className="form-label" htmlFor="installmentType">
+                Ödeme Şekli *
+              </label>
+
+              <select
+                id="installmentType"
+                className="form-input"
+                value={installmentType}
+                onChange={handleInstallmentTypeChange}
+                disabled={isSaving}
+              >
+                <option value="single">Tek Çekim</option>
+
+                <option value="installment">Taksitli</option>
+              </select>
+            </div>
+
+            {installmentType === "installment" && (
               <div>
-                <label className="form-label" htmlFor="transactionCreditCard">
-                  Kullanılan Kredi Kartı *
+                <label className="form-label" htmlFor="installmentCount">
+                  Taksit Sayısı *
                 </label>
 
-                <select
-                  id="transactionCreditCard"
+                <input
+                  id="installmentCount"
                   className="form-input"
-                  value={selectedCreditCardId}
-                  onChange={(event) =>
-                    setSelectedCreditCardId(event.target.value)
-                  }
+                  type="number"
+                  min="2"
+                  max="36"
+                  step="1"
+                  value={installmentCount}
+                  onChange={(event) => setInstallmentCount(event.target.value)}
                   disabled={isSaving}
                   required
-                >
-                  <option value="">Kredi kartı seçiniz</option>
-
-                  {activeCreditCards.map((creditCard) => (
-                    <option key={creditCard.id} value={creditCard.id}>
-                      {creditCard.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
-
-              {/* 11.GÜN - Kullanıcıya teknik taksit bilgileri yerine yalnızca tek çekim veya taksitli ödeme seçeneği gösterilir. */}
-              <div>
-                <label className="form-label" htmlFor="installmentType">
-                  Ödeme Şekli *
-                </label>
-
-                <select
-                  id="installmentType"
-                  className="form-input"
-                  value={installmentType}
-                  onChange={handleInstallmentTypeChange}
-                  disabled={isSaving}
-                >
-                  <option value="single">Tek Çekim</option>
-
-                  <option value="installment">Taksitli</option>
-                </select>
-              </div>
-
-              {installmentType === "installment" && (
-                <div>
-                  <label className="form-label" htmlFor="installmentCount">
-                    Taksit Sayısı *
-                  </label>
-
-                  <input
-                    id="installmentCount"
-                    className="form-input"
-                    type="number"
-                    min="2"
-                    max="36"
-                    step="1"
-                    value={installmentCount}
-                    onChange={(event) =>
-                      setInstallmentCount(event.target.value)
-                    }
-                    disabled={isSaving}
-                    required
-                  />
-                </div>
-              )}
-            </div>
-          </>
+            )}
+          </div>
         )}
 
         <div>
@@ -1059,21 +1103,23 @@ function TransactionForm({
             placeholder="İşlem hakkında isteğe bağlı açıklama"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
+            disabled={isSaving}
           />
         </div>
 
         {transactionType === "Gelir" ? (
           <div className="form-row">
             <div>
-              <label className="form-label" htmlFor="category">
+              <label className="form-label" htmlFor="transactionCategory">
                 Gelir Kategorisi *
               </label>
 
               <select
-                id="category"
+                id="transactionCategory"
                 className="form-input"
                 value={categoryId}
                 onChange={(event) => setCategoryId(event.target.value)}
+                disabled={isSaving}
                 required
               >
                 <option value="">Gelir kategorisi seçiniz</option>
@@ -1084,21 +1130,29 @@ function TransactionForm({
                   </option>
                 ))}
               </select>
+
+              {transactionCategoryOptions.length === 0 && (
+                <p className="form-error">
+                  Gelir kategorisi bulunmuyor. Önce gelir türünde bir kategori
+                  oluşturunuz.
+                </p>
+              )}
             </div>
 
             <div>
-              <label className="form-label" htmlFor="amount">
+              <label className="form-label" htmlFor="transactionAmount">
                 Gelir Tutarı *
               </label>
 
               <input
-                id="amount"
+                id="transactionAmount"
                 className="form-input"
                 type="number"
                 min="0.01"
                 step="0.01"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
+                disabled={isSaving}
                 required
               />
             </div>
@@ -1128,16 +1182,20 @@ function TransactionForm({
           />
         )}
 
-        <button className="add-button" type="submit" disabled={isSaving}>
+        {transactionFormError && (
+          <p className="form-error" role="alert">
+            {transactionFormError}
+          </p>
+        )}
+
+        <button
+          className="add-button"
+          type="submit"
+          disabled={isSaving || transactionCategoryOptions.length === 0}
+        >
           {isSaving ? "Kayıt Ekleniyor..." : "Finansal Kaydı Ekle"}
         </button>
       </form>
-
-      {transactionFormError && (
-        <p className="form-error" role="alert">
-          {transactionFormError}
-        </p>
-      )}
     </>
   );
 }

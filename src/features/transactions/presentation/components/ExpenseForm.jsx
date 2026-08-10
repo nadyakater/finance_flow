@@ -2,10 +2,13 @@ import ExpenseLineItem from "./ExpenseLineItem";
 
 // =====================================================
 // 7.GÜN
-// Çok satırlı gider formunun firma, şube, satırlar,
-// indirim, kupon ve toplam alanlarını gösterir.
+// Çok satırlı gider formunun firma, şube, satırlar
+// ve indirim alanlarını gösterir.
 //
-// Fiş/fatura dosyası yükleme özelliği kaldırıldı.
+// 8.GÜN
+// Gider alanları daha anlaşılır hale getirildi.
+// Kupon kodu ve elle girilen net toplam kaldırıldı.
+// Toplam gider otomatik olarak hesaplanır.
 // =====================================================
 
 function ExpenseForm({
@@ -27,6 +30,7 @@ function ExpenseForm({
   setTransactionDiscount,
   couponCode,
   setCouponCode,
+
   expenseTotals,
   formatAmount,
 }) {
@@ -156,6 +160,11 @@ function ExpenseForm({
       {/* 10.GÜN - Kullanıcının toplamı tekrar yazmasına gerek kalmadan net tutarın otomatik gösterilmesi sağlandı. */}
       <div className="category-action-panel expense-total-panel">
         <p className="selected-category-text">
+          Satır Toplamı:{" "}
+          <strong>{formatAmount(expenseTotals.subtotalMinor)} ₺</strong>
+        </p>
+
+        <p className="selected-category-text">
           Satır İndirimleri:{" "}
           <strong>
             {formatAmount(expenseTotals.lineDiscountTotalMinor)} ₺
@@ -174,6 +183,11 @@ function ExpenseForm({
 
           <strong>{formatAmount(expenseTotals.netTotalMinor)} ₺</strong>
         </div>
+
+        <p className="selected-category-text">
+          Toplam Gider:{" "}
+          <strong>{formatAmount(expenseTotals.netTotalMinor)} ₺</strong>
+        </p>
       </div>
     </>
   );
