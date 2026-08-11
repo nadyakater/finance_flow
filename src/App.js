@@ -17,6 +17,10 @@ import Admin from "./pages/Admin";
 import Anasayfa from "./pages/Anasayfa";
 import Login from "./pages/Login";
 
+import {
+  logoutUser,
+} from "./features/auth/application/authThunks";
+
 function App() {
   const dispatch = useDispatch();
 

@@ -15,251 +15,254 @@ import {
 
 // =====================================================
 // 12.GÜN - 3.19
-//
 // Dashboard ve analizler ekranı.
-//
-// Mevcut transactions Redux state'i kullanılarak
-// finansal özet değerleri hesaplanır.
 // =====================================================
 
-export default function Dashboard() {
-  const dispatch = useDispatch();
+export default function Dashboard({
+  onNavigateHome,
+  onLogout,
+}) {
+    const dispatch = useDispatch();
 
-  // =====================================================
-  // 12.GÜN - 3.19
-  //
-  // Mevcut transaction kayıtları Redux store içerisinden
-  // alınır.
-  // =====================================================
+    // =====================================================
+    // 12.GÜN - 3.19
+    // Transaction kayıtları Redux store içerisinden alınır.
+    // =====================================================
 
-  const transactions = useSelector(
-    (state) => state.transactions.items,
-  );
-
-  // =====================================================
-  // 12.GÜN - 3.19
-  //
-  // Dashboard finansal özet değerleri Redux store'dan
-  // alınır.
-  // =====================================================
-
-  const totalIncome = useSelector(
-    selectTotalIncome,
-  );
-
-  const totalExpense = useSelector(
-    selectTotalExpense,
-  );
-
-  const totalRefunds = useSelector(
-    selectTotalRefunds,
-  );
-
-  const netCashFlow = useSelector(
-    selectNetCashFlow,
-  );
-
-  const savingsRate = useSelector(
-    selectSavingsRate,
-  );
-
-  const dashboardStatus = useSelector(
-    selectDashboardStatus,
-  );
-
-  const dashboardError = useSelector(
-    selectDashboardError,
-  );
-
-  // =====================================================
-  // 12.GÜN - 3.19
-  //
-  // Transaction kayıtları değiştiğinde Dashboard
-  // hesaplamaları yeniden yapılır.
-  // =====================================================
-
-  useEffect(() => {
-    dispatch(
-      calculateDashboard(transactions),
+    const transactions = useSelector(
+        (state) => state.transactions.items,
     );
-  }, [dispatch, transactions]);
 
-  // =====================================================
-  // 12.GÜN - 3.19
-  //
-  // Para değerlerini Türk Lirası formatında gösterir.
-  // =====================================================
+    // =====================================================
+    // 12.GÜN - 3.19
+    // Dashboard finansal değerleri alınır.
+    // =====================================================
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat(
-      "tr-TR",
-      {
-        style: "currency",
-        currency: "TRY",
-      },
-    ).format(Number(value || 0));
-  };
+    const totalIncome = useSelector(
+        selectTotalIncome,
+    );
 
-  // =====================================================
-  // 12.GÜN - 3.19
-  //
-  // Dashboard ekranı.
-  // =====================================================
+    const totalExpense = useSelector(
+        selectTotalExpense,
+    );
 
-  return (
-    <div
-      style={{
-        padding: "24px",
-      }}
-    >
-      <h1>Dashboard</h1>
+    const totalRefunds = useSelector(
+        selectTotalRefunds,
+    );
 
-      <p>
-        Finansal özet ve analizler
-      </p>
+    const netCashFlow = useSelector(
+        selectNetCashFlow,
+    );
 
-      {dashboardStatus === "loading" && (
-        <p>
-          Dashboard hesaplanıyor...
-        </p>
-      )}
+    const savingsRate = useSelector(
+        selectSavingsRate,
+    );
 
-      {dashboardError && (
-        <p>
-          {dashboardError}
-        </p>
-      )}
+    const dashboardStatus = useSelector(
+        selectDashboardStatus,
+    );
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(5, 1fr)",
-          gap: "16px",
-          marginTop: "24px",
-        }}
-      >
-        {/* =====================================================
+    const dashboardError = useSelector(
+        selectDashboardError,
+    );
+
+    // =====================================================
+    // 12.GÜN - 3.19
+    // Transaction değiştiğinde Dashboard yeniden hesaplanır.
+    // =====================================================
+
+    useEffect(() => {
+        dispatch(
+            calculateDashboard(transactions),
+        );
+    }, [dispatch, transactions]);
+
+    // =====================================================
+    // 12.GÜN - 3.19
+    // Para değerleri TL formatına çevrilir.
+    // =====================================================
+
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat(
+            "tr-TR",
+            {
+                style: "currency",
+                currency: "TRY",
+            },
+        ).format(Number(value || 0));
+    };
+
+    return (
+        <div className="page-container dashboard-page-container">
+            <div className="welcome-card transaction-card">
+
+                <div className="dashboard-header">
+
+                    <div className="dashboard-header-content">
+
+                        <h1 className="welcome-title">
+                            Finansal Dashboard
+                        </h1>
+
+                        <p className="page-description">
+                            Finansal özet ve analizlerinizi
+                            buradan takip edebilirsiniz.
+                        </p>
+
+                    </div>
+
+                    <div className="dashboard-header-actions">
+
+                        {onNavigateHome && (
+                            <button
+                                className="admin-button"
+                                type="button"
+                                onClick={onNavigateHome}
+                            >
+                                ← Anasayfaya Dön
+                            </button>
+                        )}
+
+                        {onLogout && (
+                            <button
+                                className="logout-button dashboard-logout-button"
+                                type="button"
+                                onClick={onLogout}
+                            >
+                                Çıkış Yap
+                            </button>
+                        )}
+
+                    </div>
+
+                </div>
+
+                {dashboardStatus === "loading" && (
+                    <div className="dashboard-info-message">
+                        Dashboard hesaplanıyor...
+                    </div>
+                )}
+
+                {dashboardError && (
+                    <div className="error-message-panel">
+                        {dashboardError}
+                    </div>
+                )}
+
+                {/* =====================================================
             12.GÜN - 3.19
-            Toplam gelir
+            Finansal özet kartları.
             ===================================================== */}
 
-        <div
-          style={{
-            padding: "20px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            backgroundColor: "#fff",
-          }}
-        >
-          <h3>
-            Total Income
-          </h3>
+                <div className="dashboard-summary-grid">
 
-          <p>
-            {formatCurrency(
-              totalIncome,
-            )}
-          </p>
-        </div>
+                    <div className="dashboard-summary-card">
+                        <div className="dashboard-card-title">
+                            Toplam Gelir
+                        </div>
 
-        {/* =====================================================
+                        <div className="dashboard-card-value">
+                            {formatCurrency(
+                                totalIncome,
+                            )}
+                        </div>
+
+                        <div className="dashboard-card-description">
+                            Toplam gelir tutarı
+                        </div>
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+                        <div className="dashboard-card-title">
+                            Toplam Gider
+                        </div>
+
+                        <div className="dashboard-card-value">
+                            {formatCurrency(
+                                totalExpense,
+                            )}
+                        </div>
+
+                        <div className="dashboard-card-description">
+                            Toplam harcama tutarı
+                        </div>
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+                        <div className="dashboard-card-title">
+                            Toplam İade
+                        </div>
+
+                        <div className="dashboard-card-value">
+                            {formatCurrency(
+                                totalRefunds,
+                            )}
+                        </div>
+
+                        <div className="dashboard-card-description">
+                            Gerçekleşen iade tutarı
+                        </div>
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+                        <div className="dashboard-card-title">
+                            Net Nakit Akışı
+                        </div>
+
+                        <div className="dashboard-card-value">
+                            {formatCurrency(
+                                netCashFlow,
+                            )}
+                        </div>
+
+                        <div className="dashboard-card-description">
+                            Gelir ve gider arasındaki fark
+                        </div>
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+                        <div className="dashboard-card-title">
+                            Tasarruf Oranı
+                        </div>
+
+                        <div className="dashboard-card-value">
+                            {Number(
+                                savingsRate || 0,
+                            ).toFixed(2)}
+                            %
+                        </div>
+
+                        <div className="dashboard-card-description">
+                            Gelire göre tasarruf oranı
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* =====================================================
             12.GÜN - 3.19
-            Toplam gider
+            Finansal analiz açıklama alanı.
             ===================================================== */}
 
-        <div
-          style={{
-            padding: "20px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            backgroundColor: "#fff",
-          }}
-        >
-          <h3>
-            Total Expense
-          </h3>
+                <div className="dashboard-analysis-card">
 
-          <p>
-            {formatCurrency(
-              totalExpense,
-            )}
-          </p>
+                    <h2 className="dashboard-section-title">
+                        Finansal Analiz
+                    </h2>
+
+                    <p className="page-description">
+                        Gelir, gider, iade, net nakit akışı ve
+                        tasarruf oranı bilgileri yukarıdaki
+                        finansal özet kartlarında gösterilmektedir.
+                    </p>
+
+                </div>
+
+            </div>
         </div>
-
-        {/* =====================================================
-            12.GÜN - 3.19
-            Toplam iade
-            ===================================================== */}
-
-        <div
-          style={{
-            padding: "20px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            backgroundColor: "#fff",
-          }}
-        >
-          <h3>
-            Total Refunds
-          </h3>
-
-          <p>
-            {formatCurrency(
-              totalRefunds,
-            )}
-          </p>
-        </div>
-
-        {/* =====================================================
-            12.GÜN - 3.19
-            Net nakit akışı
-            ===================================================== */}
-
-        <div
-          style={{
-            padding: "20px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            backgroundColor: "#fff",
-          }}
-        >
-          <h3>
-            Net Cash Flow
-          </h3>
-
-          <p>
-            {formatCurrency(
-              netCashFlow,
-            )}
-          </p>
-        </div>
-
-        {/* =====================================================
-            12.GÜN - 3.19
-            Tasarruf oranı
-            ===================================================== */}
-
-        <div
-          style={{
-            padding: "20px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            backgroundColor: "#fff",
-          }}
-        >
-          <h3>
-            Savings Rate
-          </h3>
-
-          <p>
-            {Number(
-              savingsRate || 0,
-            ).toFixed(2)}
-            %
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
