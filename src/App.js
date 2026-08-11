@@ -11,6 +11,8 @@ import {
   selectCurrentUser,
 } from "./features/auth/presentation/authSelectors";
 
+import Dashboard from "./features/dashboard/Dashboard";
+
 import Admin from "./pages/Admin";
 import Anasayfa from "./pages/Anasayfa";
 import Login from "./pages/Login";
@@ -46,6 +48,13 @@ function App() {
     }
   }, [currentUser]);
 
+  // =====================================================
+  // 12.GÜN - 3.19
+  //
+  // Kullanıcı oturum açtıktan sonra Dashboard sayfasının
+  // uygulama içerisinde görüntülenebilmesi sağlandı.
+  // =====================================================
+
   if (!isInitialized) {
     return (
       <div className="page-container">
@@ -57,6 +66,23 @@ function App() {
   }
 
   const renderAuthenticatedPage = () => {
+    // =====================================================
+    // 12.GÜN - 3.19
+    //
+    // currentPage değeri dashboard olduğunda Dashboard
+    // componentinin gösterilmesi sağlandı.
+    // =====================================================
+
+    if (currentPage === "dashboard") {
+      return (
+        <Dashboard
+          onNavigateHome={() =>
+            setCurrentPage("home")
+          }
+        />
+      );
+    }
+
     if (currentPage === "admin") {
       return (
         <Admin
@@ -71,6 +97,17 @@ function App() {
       <Anasayfa
         onNavigateAdmin={() =>
           setCurrentPage("admin")
+        }
+
+        // =====================================================
+        // 12.GÜN - 3.19
+        //
+        // Dashboard sayfasına geçiş yapılabilmesi için
+        // Anasayfa componentine navigation fonksiyonu gönderildi.
+        // =====================================================
+
+        onNavigateDashboard={() =>
+          setCurrentPage("dashboard")
         }
       />
     );

@@ -10,6 +10,16 @@ import transactionReducer from "../features/transactions/presentation/transactio
 import reportingReducer from "../features/reporting/presentation/reportingSlice";
 
 // =====================================================
+// 12.GÜN - 3.19
+//
+// Dashboard ve analizler bölümünün Redux store
+// içerisinde yönetilebilmesi için dashboard reducer
+// store içerisine eklendi.
+// =====================================================
+
+import dashboardReducer from "../features/dashboard/dashboardSlice";
+
+// =====================================================
 // 11.GÜN
 // Düzenli giderler, faturalar ve aboneliklerin
 // uygulama genelinde Redux üzerinden yönetilebilmesi
@@ -34,6 +44,24 @@ export const store = configureStore({
 
     // 3.GÜN - Gelir ve gider kayıtları Redux store içerisine eklendi.
     transactions: transactionReducer,
+
+    // =====================================================
+    // 12.GÜN - 3.19
+    //
+    // Dashboard finansal özet bilgilerinin Redux store
+    // içerisinde tutulabilmesi için dashboard reducer
+    // store içerisine eklendi.
+    //
+    // Dashboard içerisinde:
+    // - TotalIncome
+    // - TotalExpense
+    // - NetCashFlow
+    // - SavingsRate
+    //
+    // değerleri yönetilecektir.
+    // =====================================================
+
+    dashboard: dashboardReducer,
 
     // 5.GÜN - Sınırsız kategori ağacı Redux store içerisine eklendi.
     categories: categoryReducer,

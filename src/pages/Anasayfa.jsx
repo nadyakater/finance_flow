@@ -147,11 +147,11 @@ function convertInputAmountToMinor(
 
   const normalizedAmount =
     typeof amount ===
-    "string"
+      "string"
       ? amount.replace(
-          ",",
-          ".",
-        )
+        ",",
+        ".",
+      )
       : amount;
 
   const numericAmount =
@@ -169,7 +169,7 @@ function convertInputAmountToMinor(
 
   return Math.round(
     numericAmount *
-      100,
+    100,
   );
 }
 
@@ -185,7 +185,7 @@ function getTodayDateValue() {
 
   return new Date(
     currentDate.getTime() -
-      timezoneOffset,
+    timezoneOffset,
   )
     .toISOString()
     .slice(
@@ -204,7 +204,7 @@ function getTransactionCategoryPathIds(
       transaction.categoryPathIds,
     ) &&
     transaction.categoryPathIds.length >
-      0
+    0
   ) {
     return transaction.categoryPathIds;
   }
@@ -219,7 +219,7 @@ function getTransactionCategoryPathIds(
 
   const expectedCategoryType =
     transaction.transactionType ===
-    "Gelir"
+      "Gelir"
       ? "income"
       : "expense";
 
@@ -229,12 +229,12 @@ function getTransactionCategoryPathIds(
         category,
       ) =>
         category.name ===
-          transaction.category &&
+        transaction.category &&
         (
           category.categoryType ===
-            expectedCategoryType ||
+          expectedCategoryType ||
           category.categoryType ===
-            "both"
+          "both"
         ),
     );
 
@@ -254,7 +254,7 @@ function getTransactionCategoryItems(
       transaction.lines,
     ) &&
     transaction.lines.length >
-      0
+    0
   ) {
     return transaction.lines.map(
       (
@@ -266,20 +266,20 @@ function getTransactionCategoryItems(
           )
             ? line.netAmountMinor
             : Number.isInteger(
-                  line.grossAmountMinor,
-                )
+              line.grossAmountMinor,
+            )
               ? line.grossAmountMinor -
-                Number(
-                  line.lineDiscountMinor ??
-                    0,
-                ) -
-                Number(
-                  line.allocatedTransactionDiscountMinor ??
-                    0,
-                )
+              Number(
+                line.lineDiscountMinor ??
+                0,
+              ) -
+              Number(
+                line.allocatedTransactionDiscountMinor ??
+                0,
+              )
               : convertInputAmountToMinor(
-                  line.amount,
-                );
+                line.amount,
+              );
 
         return {
           categoryId:
@@ -293,8 +293,8 @@ function getTransactionCategoryItems(
               ? line.categoryPathIds
               : line.categoryId
                 ? [
-                    line.categoryId,
-                  ]
+                  line.categoryId,
+                ]
                 : [],
 
           amountMinor:
@@ -319,7 +319,7 @@ function getTransactionCategoryItems(
       amountMinor:
         Number(
           transaction.amountMinor ??
-            0,
+          0,
         ),
     },
   ];
@@ -334,7 +334,7 @@ function getTransactionCategoryLabel(
       transaction.lines,
     ) &&
     transaction.lines.length >
-      0
+    0
   ) {
     const categoryLabels =
       transaction.lines
@@ -374,8 +374,16 @@ function getTransactionCategoryLabel(
 }
 
 
+// =====================================================
+// 12.GÜN - 3.19
+//
+// Dashboard sayfasına geçiş yapılabilmesi için
+// onNavigateDashboard fonksiyonu alınır.
+// =====================================================
+
 function Anasayfa({
   onNavigateAdmin,
+  onNavigateDashboard,
 }) {
   const dispatch =
     useDispatch();
@@ -490,10 +498,10 @@ function Anasayfa({
                   ) =>
                     includeDescendants
                       ? categoryItem.categoryPathIds.includes(
-                          filterCategoryId,
-                        )
-                      : categoryItem.categoryId ===
                         filterCategoryId,
+                      )
+                      : categoryItem.categoryId ===
+                      filterCategoryId,
                 ),
             );
           },
@@ -594,16 +602,16 @@ function Anasayfa({
             filterCategoryId,
           )
             ? currentCategoryIds.filter(
-                (
-                  categoryItemId,
-                ) =>
-                  categoryItemId !==
-                  filterCategoryId,
-              )
-            : [
-                ...currentCategoryIds,
+              (
+                categoryItemId,
+              ) =>
+                categoryItemId !==
                 filterCategoryId,
-              ],
+            )
+            : [
+              ...currentCategoryIds,
+              filterCategoryId,
+            ],
       );
     };
 
@@ -628,6 +636,21 @@ function Anasayfa({
 
 
           <div className="dashboard-header-actions">
+            {/* =====================================================
+    12.GÜN - 3.19
+    Dashboard ve analizler ekranına geçiş yapılabilmesi
+    için Dashboard butonu eklendi.
+    ===================================================== */}
+
+            <button
+              className="admin-button"
+              type="button"
+              onClick={
+                onNavigateDashboard
+              }
+            >
+              Dashboard
+            </button>
             <button
               className="admin-button"
               type="button"
