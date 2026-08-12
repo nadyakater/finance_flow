@@ -177,19 +177,15 @@ export const selectOverdueForecastTotalMinor = createSelector(
 // Ödenmiş forecast kayıtlarında tahmini tutar ile
 // gerçek tutar arasındaki fark hesaplanır.
 //
-// Böylece örneğin:
-//
-// Tahmin: 600 TL
-// Gerçek: 675 TL
-// Fark: +75 TL
-//
-// gibi bilgiler analiz edilebilir.
+// Ayrıca her forecast kaydına ilgili gider/abonelik adı (ruleName) eklenir.
 // =====================================================
 
 export const selectForecastAccuracyAnalysis = createSelector(
-  [selectAllForecasts],
-  (forecasts) =>
-    forecasts
+  [selectAllForecasts, selectRecurringRules],
+  (forecasts, rules) => {
+    const rulesMap = new Map(rules.map((rule) => [rule.id, rule.name]));
+
+    return forecasts
       .filter(
         (forecast) =>
           forecast.status === "paid" &&
@@ -212,11 +208,14 @@ export const selectForecastAccuracyAnalysis = createSelector(
         return {
           ...forecast,
 
+          ruleName: rulesMap.get(forecast.recurringRuleId) ?? "Düzenli Gider",
+
           errorMinor,
 
           errorPercent,
         };
-      }),
+      });
+  },
 );
 
 // =====================================================

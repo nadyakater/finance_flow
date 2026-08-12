@@ -76,7 +76,6 @@ function convertAmountToMinor(amount) {
 // 11.GÜN - Düzenli gider ve abonelik ekranı
 //
 // Kullanıcı:
-//
 // - düzenli gider oluşturabilir,
 // - tahmini gelecek ödeme oluşturabilir,
 // - gerçek tutarı girerek ödemeyi kapatabilir,
@@ -769,6 +768,7 @@ function RecurringExpenseSection() {
       {/* =====================================================
           11.GÜN
           Ödenmiş kayıtların tahmin-gerçek farkı analiz edilir.
+          Eşleşen kural adı (gider/abonelik adı) en üste başlık olarak eklenmiştir.
           ===================================================== */}
 
       <div className="category-action-panel">
@@ -780,40 +780,50 @@ function RecurringExpenseSection() {
           </p>
         ) : (
           <div className="installment-month-list">
-            {forecastAccuracyAnalysis.map((forecast) => (
-              <div key={forecast.id} className="category-action-panel">
-                <p>
-                  Tahmin:{" "}
-                  <strong>
-                    {formatAmount(forecast.estimatedAmountMinor)} ₺
-                  </strong>
-                </p>
+            {forecastAccuracyAnalysis.map((forecast) => {
+              const matchedRule = recurringRules.find(
+                (recurringRule) =>
+                  recurringRule.id === forecast.recurringRuleId,
+              );
 
-                <p>
-                  Gerçek:{" "}
-                  <strong>{formatAmount(forecast.actualAmountMinor)} ₺</strong>
-                </p>
+              return (
+                <div key={forecast.id} className="category-action-panel">
+                  <h4 style={{ margin: "0 0 8px 0", fontWeight: "bold" }}>
+                    {matchedRule?.name ?? "Düzenli Gider"}
+                  </h4>
 
-                <p>
-                  Fark:{" "}
-                  <strong>
-                    {forecast.errorMinor >= 0 ? "+" : ""}
-                    {formatAmount(forecast.errorMinor)} ₺
-                  </strong>
-                </p>
+                  <p>
+                    Tahmin:{" "}
+                    <strong>
+                      {formatAmount(forecast.estimatedAmountMinor)} ₺
+                    </strong>
+                  </p>
 
-                <p>
-                  Yüzdesel Fark:{" "}
-                  <strong>
-                    {forecast.errorPercent === null
-                      ? "-"
-                      : `${
-                          forecast.errorPercent >= 0 ? "+" : ""
+                  <p>
+                    Gerçek:{" "}
+                    <strong>{formatAmount(forecast.actualAmountMinor)} ₺</strong>
+                  </p>
+
+                  <p>
+                    Fark:{" "}
+                    <strong>
+                      {forecast.errorMinor >= 0 ? "+" : ""}
+                      {formatAmount(forecast.errorMinor)} ₺
+                    </strong>
+                  </p>
+
+                  <p>
+                    Yüzdesel Fark:{" "}
+                    <strong>
+                      {forecast.errorPercent === null
+                        ? "-"
+                        : `${forecast.errorPercent >= 0 ? "+" : ""
                         }${forecast.errorPercent}%`}
-                  </strong>
-                </p>
-              </div>
-            ))}
+                    </strong>
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

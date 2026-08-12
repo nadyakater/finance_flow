@@ -22,10 +22,8 @@ import {
 // 11.GÜN - Bütçe ve hedef repository
 //
 // Kullanıcının:
-//
 // - kategori bütçeleri,
 // - kategori ağacı bütçeleri,
-// - rollover ayarları,
 // - tasarruf hedefleri
 //
 // Firestore işlemleri bu dosyada yönetilir.
@@ -34,10 +32,7 @@ import {
 // =====================================================
 // 11.GÜN
 // Kullanıcının bütçelerinin tutulduğu koleksiyon.
-//
-// Firestore yolu:
-//
-// users/{userId}/budgets
+// Firestore yolu: users/{userId}/budgets
 // =====================================================
 
 function getBudgetsCollection(userId) {
@@ -55,12 +50,8 @@ function getBudgetReference(userId, budgetId) {
 
 // =====================================================
 // 11.GÜN
-// Kullanıcının tasarruf hedeflerinin tutulduğu
-// koleksiyona erişir.
-//
-// Firestore yolu:
-//
-// users/{userId}/savingsTargets
+// Kullanıcının tasarruf hedeflerinin tutulduğu koleksiyon.
+// Firestore yolu: users/{userId}/savingsTargets
 // =====================================================
 
 function getSavingsTargetsCollection(userId) {
@@ -121,9 +112,6 @@ function mapBudgetDocument(budgetDocument) {
     // 11.GÜN
     // true ise parent kategori bütçesi alt kategorilerin
     // giderlerini de kapsar.
-    //
-    // false ise yalnızca doğrudan seçilen kategori
-    // hesaba katılır.
     // =====================================================
 
     includeDescendants: data.includeDescendants !== false,
@@ -132,8 +120,7 @@ function mapBudgetDocument(budgetDocument) {
 
     // =====================================================
     // 11.GÜN
-    // Bütçenin hangi finansal raporlama dönemine ait
-    // olduğunu saklarız.
+    // Bütçenin ait olduğu finansal raporlama dönemi.
     // =====================================================
 
     periodStart: data.periodStart ?? "",
@@ -141,18 +128,6 @@ function mapBudgetDocument(budgetDocument) {
     periodEnd: data.periodEnd ?? "",
 
     reportingMode: data.reportingMode ?? "calendarMonth",
-
-    // =====================================================
-    // 11.GÜN
-    // Rollover aktifse önceki dönemden kullanılmayan
-    // bütçe sonraki döneme aktarılabilir.
-    // =====================================================
-
-    rolloverEnabled: Boolean(data.rolloverEnabled),
-
-    rolloverSourceBudgetId: data.rolloverSourceBudgetId ?? "",
-
-    rolloverAmountMinor: Number(data.rolloverAmountMinor ?? 0),
 
     isActive: data.isActive !== false,
 
@@ -184,16 +159,6 @@ function mapSavingsTargetDocument(targetDocument) {
 
     name: data.name ?? "Tasarruf Hedefi",
 
-    // =====================================================
-    // 11.GÜN
-    // Hedef tipi:
-    //
-    // amount
-    // incomePercent
-    //
-    // olarak saklanır.
-    // =====================================================
-
     targetType: data.targetType ?? "amount",
 
     targetAmountMinor: Number(data.targetAmountMinor ?? 0),
@@ -202,12 +167,6 @@ function mapSavingsTargetDocument(targetDocument) {
       data.targetPercent === null || data.targetPercent === undefined
         ? null
         : Number(data.targetPercent),
-
-    // =====================================================
-    // 11.GÜN
-    // Tasarruf hedefinin hangi finansal dönemde
-    // değerlendirileceğini saklarız.
-    // =====================================================
 
     periodStart: data.periodStart ?? "",
 
@@ -230,23 +189,7 @@ function mapSavingsTargetDocument(targetDocument) {
 }
 
 // =====================================================
-// 11.GÜN - Yeni kategori bütçesi
-//
-// Kullanıcı seçilen finansal dönem için kategori veya
-// kategori ağacına limit belirler.
-//
-// Örneğin:
-//
-// Ev bütçesi = 15.000 TL
-//
-// includeDescendants = true ise:
-//
-// Ev
-// Ev > Kira
-// Ev > Faturalar
-// Ev > Faturalar > İnternet
-//
-// giderleri bütçeye dahil edilebilir.
+// 11.GÜN - Yeni kategori bütçesi oluşturma
 // =====================================================
 
 export async function createBudget(
@@ -260,9 +203,6 @@ export async function createBudget(
     periodStart,
     periodEnd,
     reportingMode,
-    rolloverEnabled = false,
-    rolloverSourceBudgetId = "",
-    rolloverAmountMinor = 0,
   },
 ) {
   if (!userId) {
@@ -298,20 +238,6 @@ export async function createBudget(
 
     reportingMode: reportingMode ?? "calendarMonth",
 
-    rolloverEnabled: Boolean(rolloverEnabled),
-
-    // =====================================================
-    // 11.GÜN
-    // Rollover kullanılıyorsa önceki bütçenin kimliği
-    // ve aktarılan tutar ayrıca saklanır.
-    //
-    // Böylece rollover kaynağı sonradan görülebilir.
-    // =====================================================
-
-    rolloverSourceBudgetId: rolloverSourceBudgetId ?? "",
-
-    rolloverAmountMinor: Number(rolloverAmountMinor ?? 0),
-
     isActive: true,
 
     createdAtUtc: serverTimestamp(),
@@ -333,9 +259,6 @@ export async function createBudget(
 // =====================================================
 // 11.GÜN
 // Kullanıcının bütün bütçe kayıtlarını getirir.
-//
-// Geçmiş dönem bütçeleri de tutulduğu için yalnızca
-// aktif dönem değil tüm kayıtlar alınır.
 // =====================================================
 
 export async function getBudgets(userId) {
@@ -356,9 +279,6 @@ export async function getBudgets(userId) {
 // =====================================================
 // 11.GÜN
 // Mevcut kategori bütçesinin limitini günceller.
-//
-// Geçmiş dönem bütçelerini değiştirmek yerine sadece
-// seçilen bütçe kaydı güncellenir.
 // =====================================================
 
 export async function updateBudgetAmount(
@@ -398,14 +318,7 @@ export async function updateBudgetAmount(
 
 // =====================================================
 // 11.GÜN
-// Bütçenin alt kategorileri kapsayıp kapsamadığını
-// değiştirmek için kullanılır.
-//
-// true:
-// Parent kategori + descendant kategoriler.
-//
-// false:
-// Yalnız doğrudan seçilen kategori.
+// Bütçenin alt kategorileri kapsayıp kapsamadığını günceller.
 // =====================================================
 
 export async function updateBudgetDescendantSetting(
@@ -433,10 +346,7 @@ export async function updateBudgetDescendantSetting(
 
 // =====================================================
 // 11.GÜN
-// Bütçe aktif/pasif durumu değiştirilir.
-//
-// Eski dönem bütçesini tamamen silmek yerine pasif
-// tutmak geçmiş raporların korunmasını kolaylaştırır.
+// Bütçe aktif/pasif durumunu değiştirir.
 // =====================================================
 
 export async function updateBudgetActiveStatus(userId, budgetId, isActive) {
@@ -461,18 +371,6 @@ export async function updateBudgetActiveStatus(userId, budgetId, isActive) {
 
 // =====================================================
 // 11.GÜN - Yeni tasarruf hedefi
-//
-// Kullanıcı iki farklı şekilde hedef oluşturabilir:
-//
-// 1. Sabit tutar
-//
-//    Örnek:
-//    Bu dönem 5.000 TL tasarruf edeceğim.
-//
-// 2. Gelir yüzdesi
-//
-//    Örnek:
-//    Gelirimin %20'sini tasarruf edeceğim.
 // =====================================================
 
 export async function createSavingsTarget(
@@ -501,21 +399,9 @@ export async function createSavingsTarget(
 
   let validTargetPercent = null;
 
-  // =====================================================
-  // 11.GÜN
-  // Sabit tutar hedefi seçildiyse tutar doğrulanır.
-  // =====================================================
-
   if (validTargetType === "amount") {
     validTargetAmountMinor = validateBudgetAmountMinor(targetAmountMinor);
   }
-
-  // =====================================================
-  // 11.GÜN
-  // Gelir yüzdesi hedefi seçildiyse yüzde doğrulanır.
-  //
-  // 0'dan büyük ve en fazla %100 olabilir.
-  // =====================================================
 
   if (validTargetType === "incomePercent") {
     validTargetPercent = validateSavingsTargetPercent(targetPercent);
@@ -559,8 +445,6 @@ export async function createSavingsTarget(
 // =====================================================
 // 11.GÜN
 // Kullanıcının bütün tasarruf hedeflerini getirir.
-//
-// Geçmiş dönem hedefleri de saklanır.
 // =====================================================
 
 export async function getSavingsTargets(userId) {
@@ -582,9 +466,6 @@ export async function getSavingsTargets(userId) {
 // =====================================================
 // 11.GÜN
 // Tasarruf hedefi aktif veya pasif yapılabilir.
-//
-// Eski hedef doğrudan silinmez.
-// Böylece geçmiş finansal dönem bilgisi korunabilir.
 // =====================================================
 
 export async function updateSavingsTargetActiveStatus(

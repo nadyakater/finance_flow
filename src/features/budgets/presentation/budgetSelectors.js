@@ -8,14 +8,11 @@ import {
   calculateSavingsTargetRemainingMinor,
 } from "../domain/budgetCalculations";
 
-import { isDateInsideReportingPeriod } from "../../reporting/domain/reportingPeriodCalculations";
-
 import { selectActiveReportingPeriod } from "../../reporting/presentation/reportingSelectors";
 
 import {
   selectNetBalanceMinor,
   selectTotalIncomeMinor,
-  selectTransactions,
   selectTransactionsInActiveReportingPeriod,
 } from "../../transactions/presentation/transactionSelectors";
 
@@ -26,16 +23,13 @@ import {
 // Redux state içerisindeki veriler kullanılarak yapılır.
 //
 // Bu dosyada:
-//
 // - aktif dönem bütçeleri,
 // - kategori bütçesi kullanımı,
 // - parent kategori / descendant hesabı,
 // - refund sonrası kullanılan bütçe,
 // - kalan bütçe,
 // - kullanım yüzdesi,
-// - rollover,
 // - tasarruf hedefi ilerlemesi
-//
 // hesaplanır.
 // =====================================================
 
@@ -99,7 +93,6 @@ export const selectBudgetError = (state) => selectBudgetState(state).error;
 
 export const selectEnabledBudgets = createSelector(
   [selectBudgets],
-
   (budgets) => budgets.filter((budget) => budget.isActive),
 );
 
@@ -110,7 +103,6 @@ export const selectEnabledBudgets = createSelector(
 
 export const selectEnabledSavingsTargets = createSelector(
   [selectSavingsTargets],
-
   (savingsTargets) => savingsTargets.filter((target) => target.isActive),
 );
 
@@ -121,10 +113,8 @@ export const selectEnabledSavingsTargets = createSelector(
 
 export const selectBudgetsForActivePeriod = createSelector(
   [selectEnabledBudgets, selectActiveReportingPeriod],
-
   (budgets, activeReportingPeriod) => {
     const periodStart = activeReportingPeriod?.startDate ?? "";
-
     const periodEnd = activeReportingPeriod?.endDate ?? "";
 
     if (!periodStart || !periodEnd) {
@@ -145,10 +135,8 @@ export const selectBudgetsForActivePeriod = createSelector(
 
 export const selectSavingsTargetsForActivePeriod = createSelector(
   [selectEnabledSavingsTargets, selectActiveReportingPeriod],
-
   (savingsTargets, activeReportingPeriod) => {
     const periodStart = activeReportingPeriod?.startDate ?? "";
-
     const periodEnd = activeReportingPeriod?.endDate ?? "";
 
     if (!periodStart || !periodEnd) {
@@ -166,22 +154,10 @@ export const selectSavingsTargetsForActivePeriod = createSelector(
 // 11.GÜN
 // Bir gider transaction'ının iade sonrası kalan
 // gerçek gider tutarını hesaplar.
-//
-// Örneğin:
-//
-// Gider:
-// 1.000 TL
-//
-// İade:
-// 200 TL
-//
-// Bütçe kullanımı:
-// 800 TL
 // =====================================================
 
 function getRemainingExpenseMinor(transaction) {
   const amountMinor = Number(transaction.amountMinor ?? 0);
-
   const refundedMinor = Number(transaction.refundedMinor ?? 0);
 
   return Math.max(amountMinor - refundedMinor, 0);
@@ -201,13 +177,11 @@ function allocateRefundToLines(transaction) {
   }
 
   const transactionAmountMinor = Number(transaction.amountMinor ?? 0);
-
   const remainingExpenseMinor = getRemainingExpenseMinor(transaction);
 
   if (transactionAmountMinor <= 0) {
     return lines.map((line) => ({
       ...line,
-
       budgetNetAmountMinor: 0,
     }));
   }
@@ -215,7 +189,6 @@ function allocateRefundToLines(transaction) {
   if (remainingExpenseMinor === transactionAmountMinor) {
     return lines.map((line) => ({
       ...line,
-
       budgetNetAmountMinor: Number(
         line.netAmountMinor ?? line.grossAmountMinor ?? 0,
       ),
@@ -234,14 +207,13 @@ function allocateRefundToLines(transaction) {
     const budgetNetAmountMinor = isLastLine
       ? Math.max(remainingExpenseMinor - allocatedTotalMinor, 0)
       : Math.round(
-          (lineNetAmountMinor * remainingExpenseMinor) / transactionAmountMinor,
-        );
+        (lineNetAmountMinor * remainingExpenseMinor) / transactionAmountMinor,
+      );
 
     allocatedTotalMinor += budgetNetAmountMinor;
 
     return {
       ...line,
-
       budgetNetAmountMinor,
     };
   });
@@ -270,28 +242,8 @@ function getTransactionCategoryPathIds(transaction) {
 
 // =====================================================
 // 11.GÜN
-// Transaction tarihini YYYY-MM-DD biçiminde bulur.
-// =====================================================
-
-function getTransactionDateValue(transaction) {
-  if (transaction.transactionDate) {
-    return transaction.transactionDate;
-  }
-
-  if (typeof transaction.createdAtUtc === "string") {
-    return transaction.createdAtUtc.slice(0, 10);
-  }
-
-  return "";
-}
-
-// =====================================================
-// 11.GÜN
 // Transaction içerisindeki giderleri kategori bazlı
 // bütçe kalemlerine dönüştürür.
-//
-// Gelir, iade ve transfer gibi kayıtlar burada
-// doğrudan gider olarak değerlendirilmez.
 // =====================================================
 
 function getBudgetExpenseItems(transaction) {
@@ -304,14 +256,12 @@ function getBudgetExpenseItems(transaction) {
 
     return adjustedLines.map((line) => ({
       categoryId: line.categoryId ?? "",
-
       categoryPathIds:
         Array.isArray(line.categoryPathIds) && line.categoryPathIds.length > 0
           ? line.categoryPathIds
           : line.categoryId
             ? [line.categoryId]
             : [],
-
       amountMinor: Number(line.budgetNetAmountMinor ?? 0),
     }));
   }
@@ -319,9 +269,7 @@ function getBudgetExpenseItems(transaction) {
   return [
     {
       categoryId: transaction.categoryId ?? "",
-
       categoryPathIds: getTransactionCategoryPathIds(transaction),
-
       amountMinor: getRemainingExpenseMinor(transaction),
     },
   ];
@@ -331,14 +279,6 @@ function getBudgetExpenseItems(transaction) {
 // 11.GÜN
 // Bir gider kaleminin bütçe kategorisiyle eşleşip
 // eşleşmediğini kontrol eder.
-//
-// includeDescendants = true:
-//
-// Parent kategori ve bütün alt kategoriler dahil.
-//
-// includeDescendants = false:
-//
-// Yalnız doğrudan seçilen kategori dahil.
 // =====================================================
 
 function doesExpenseItemMatchBudget({ expenseItem, budget }) {
@@ -361,13 +301,6 @@ function doesExpenseItemMatchBudget({ expenseItem, budget }) {
 
 function calculateSpentForBudget({ budget, transactions }) {
   return transactions.reduce((totalSpentMinor, transaction) => {
-    // =====================================================
-    // 11.GÜN
-    // Sadece gerçek giderler bütçeyi kullanır.
-    //
-    // Transfer bütçeyi etkilemez.
-    // =====================================================
-
     if (transaction.transactionType !== "Gider") {
       return totalSpentMinor;
     }
@@ -394,132 +327,16 @@ function calculateSpentForBudget({ budget, transactions }) {
   }, 0);
 }
 
-// =====================================================
-// 11.GÜN - 3.18 ROLLOVER
-//
-// Her bütçenin kendi dönemine ait transactionları
-// bulmak için yardımcı fonksiyon.
-//
-// Böylece geçmiş dönem bütçesinin ne kadar
-// kullanıldığı otomatik hesaplanabilir.
-// =====================================================
-
-function getTransactionsForBudgetPeriod({ budget, transactions }) {
-  if (!budget?.periodStart || !budget?.periodEnd) {
-    return [];
-  }
-
-  return transactions.filter((transaction) => {
-    const transactionDate = getTransactionDateValue(transaction);
-
-    if (!transactionDate) {
-      return false;
-    }
-
-    return isDateInsideReportingPeriod({
-      dateValue: transactionDate,
-
-      startDate: budget.periodStart,
-
-      endDate: budget.periodEnd,
-    });
-  });
-}
-
-// =====================================================
-// 11.GÜN - 3.18 ROLLOVER
-//
-// Geçmişte oluşturulan HER bütçe için:
-//
-// - temel bütçe,
-// - daha önce devreden rollover,
-// - kullanılabilir bütçe,
-// - kullanılan tutar,
-// - kalan tutar
-//
-// yeniden hesaplanır.
-//
-// Bu hesaplama sayesinde kullanıcı rollover miktarını
-// artık elle yazmak zorunda kalmaz.
-// =====================================================
-
-export const selectHistoricalBudgetSummaries = createSelector(
-  [selectEnabledBudgets, selectTransactions],
-
-  (budgets, transactions) =>
-    budgets.map((budget) => {
-      const transactionsForPeriod = getTransactionsForBudgetPeriod({
-        budget,
-        transactions,
-      });
-
-      const spentMinor = calculateSpentForBudget({
-        budget,
-        transactions: transactionsForPeriod,
-      });
-
-      const summary = calculateBudgetSummary({
-        budgetMinor: budget.budgetAmountMinor,
-
-        expenseMinor: spentMinor,
-
-        refundMinor: 0,
-
-        rolloverMinor: budget.rolloverAmountMinor ?? 0,
-      });
-
-      return {
-        ...budget,
-
-        ...summary,
-
-        rolloverSourceBudgetId: budget.rolloverSourceBudgetId ?? "",
-      };
-    }),
-);
-
-// =====================================================
-// 11.GÜN - 3.18 ROLLOVER
-//
-// Aktif dönemden ÖNCE bitmiş bütçeleri rollover
-// kaynağı olarak listeler.
-//
-// Gelecekteki veya mevcut dönemin bütçesi kaynak
-// olarak seçilemez.
-//
-// En yakın geçmiş dönem önce gösterilir.
-// =====================================================
-
-export const selectBudgetRolloverCandidates = createSelector(
-  [selectHistoricalBudgetSummaries, selectActiveReportingPeriod],
-
-  (budgetSummaries, activeReportingPeriod) => {
-    const activeStartDate = activeReportingPeriod?.startDate ?? "";
-
-    if (!activeStartDate) {
-      return [];
-    }
-
-    return budgetSummaries
-      .filter(
-        (budget) =>
-          Boolean(budget.periodEnd) && budget.periodEnd < activeStartDate,
-      )
-      .sort((firstBudget, secondBudget) =>
-        secondBudget.periodEnd.localeCompare(firstBudget.periodEnd),
-      );
-  },
-);
+/* 13. gün düzenleme - Rollover içeren getTransactionsForBudgetPeriod, 
+   selectHistoricalBudgetSummaries ve selectBudgetRolloverCandidates kaldırıldı. */
 
 // =====================================================
 // 11.GÜN
-// Aktif finansal dönem bütçelerinin kullanımını
-// hesaplar.
+// Aktif finansal dönem bütçelerinin kullanımını hesaplar.
 // =====================================================
 
 export const selectActiveBudgetSummaries = createSelector(
   [selectBudgetsForActivePeriod, selectTransactionsInActiveReportingPeriod],
-
   (budgets, transactions) =>
     budgets.map((budget) => {
       const spentMinor = calculateSpentForBudget({
@@ -527,22 +344,17 @@ export const selectActiveBudgetSummaries = createSelector(
         transactions,
       });
 
+      /* 13. gün düzenleme - rolloverMinor sabitleştirildi/kaldırıldı */
       const summary = calculateBudgetSummary({
         budgetMinor: budget.budgetAmountMinor,
-
         expenseMinor: spentMinor,
-
         refundMinor: 0,
-
-        rolloverMinor: budget.rolloverAmountMinor ?? 0,
+        rolloverMinor: 0,
       });
 
       return {
         ...budget,
-
         ...summary,
-
-        rolloverSourceBudgetId: budget.rolloverSourceBudgetId ?? "",
       };
     }),
 );
@@ -554,7 +366,6 @@ export const selectActiveBudgetSummaries = createSelector(
 
 export const selectTotalBaseBudgetMinor = createSelector(
   [selectActiveBudgetSummaries],
-
   (budgetSummaries) =>
     budgetSummaries.reduce(
       (total, budget) => total + Number(budget.baseBudgetMinor ?? 0),
@@ -562,29 +373,15 @@ export const selectTotalBaseBudgetMinor = createSelector(
     ),
 );
 
-// =====================================================
-// 11.GÜN
-// Aktif döneme devreden toplam rollover.
-// =====================================================
-
-export const selectTotalBudgetRolloverMinor = createSelector(
-  [selectActiveBudgetSummaries],
-
-  (budgetSummaries) =>
-    budgetSummaries.reduce(
-      (total, budget) => total + Number(budget.rolloverMinor ?? 0),
-      0,
-    ),
-);
+/* 13. gün düzenleme - selectTotalBudgetRolloverMinor kaldırıldı */
 
 // =====================================================
 // 11.GÜN
-// Temel bütçe + rollover toplamı.
+// Kullanılabilir efektif bütçe toplamı (Temel Bütçe).
 // =====================================================
 
 export const selectTotalEffectiveBudgetMinor = createSelector(
   [selectActiveBudgetSummaries],
-
   (budgetSummaries) =>
     budgetSummaries.reduce(
       (total, budget) => total + Number(budget.effectiveBudgetMinor ?? 0),
@@ -599,7 +396,6 @@ export const selectTotalEffectiveBudgetMinor = createSelector(
 
 export const selectTotalTrackedBudgetSpentMinor = createSelector(
   [selectActiveBudgetSummaries],
-
   (budgetSummaries) =>
     budgetSummaries.reduce(
       (total, budget) => total + Number(budget.spentMinor ?? 0),
@@ -614,7 +410,6 @@ export const selectTotalTrackedBudgetSpentMinor = createSelector(
 
 export const selectTotalBudgetRemainingMinor = createSelector(
   [selectActiveBudgetSummaries],
-
   (budgetSummaries) =>
     budgetSummaries.reduce(
       (total, budget) => total + Number(budget.remainingMinor ?? 0),
@@ -629,7 +424,6 @@ export const selectTotalBudgetRemainingMinor = createSelector(
 
 export const selectExceededBudgets = createSelector(
   [selectActiveBudgetSummaries],
-
   (budgetSummaries) => budgetSummaries.filter((budget) => budget.exceeded),
 );
 
@@ -644,19 +438,13 @@ export const selectBudgetSummaryById = (state, budgetId) =>
 
 // =====================================================
 // 11.GÜN - Tasarruf oranı
-//
-// Net nakit / Toplam gelir * 100
-//
-// Gelir yoksa null.
 // =====================================================
 
 export const selectCurrentSavingsRate = createSelector(
   [selectTotalIncomeMinor, selectNetBalanceMinor],
-
   (totalIncomeMinor, netBalanceMinor) =>
     calculateSavingsRate({
       totalIncomeMinor,
-
       netCashFlowMinor: netBalanceMinor,
     }),
 );
@@ -672,7 +460,6 @@ export const selectSavingsTargetSummaries = createSelector(
     selectTotalIncomeMinor,
     selectNetBalanceMinor,
   ],
-
   (savingsTargets, totalIncomeMinor, netBalanceMinor) =>
     savingsTargets.map((target) => {
       let calculatedTargetMinor = 0;
@@ -684,34 +471,26 @@ export const selectSavingsTargetSummaries = createSelector(
       if (target.targetType === "incomePercent") {
         calculatedTargetMinor = calculateSavingsTargetFromIncomePercent({
           totalIncomeMinor,
-
           targetPercent: target.targetPercent,
         });
       }
 
       const remainingMinor = calculateSavingsTargetRemainingMinor({
         targetMinor: calculatedTargetMinor,
-
         netCashFlowMinor: netBalanceMinor,
       });
 
       const progressPercent = calculateSavingsTargetProgressPercent({
         targetMinor: calculatedTargetMinor,
-
         netCashFlowMinor: netBalanceMinor,
       });
 
       return {
         ...target,
-
         calculatedTargetMinor,
-
         currentSavingsMinor: Number(netBalanceMinor ?? 0),
-
         remainingMinor,
-
         progressPercent,
-
         completed:
           calculatedTargetMinor > 0 &&
           Number(netBalanceMinor ?? 0) >= calculatedTargetMinor,
@@ -726,7 +505,6 @@ export const selectSavingsTargetSummaries = createSelector(
 
 export const selectPrimarySavingsTarget = createSelector(
   [selectSavingsTargetSummaries],
-
   (savingsTargets) => savingsTargets[0] ?? null,
 );
 
@@ -737,7 +515,6 @@ export const selectPrimarySavingsTarget = createSelector(
 
 export const selectHasActivePeriodBudget = createSelector(
   [selectBudgetsForActivePeriod],
-
   (budgets) => budgets.length > 0,
 );
 
@@ -748,6 +525,5 @@ export const selectHasActivePeriodBudget = createSelector(
 
 export const selectHasActiveSavingsTarget = createSelector(
   [selectSavingsTargetsForActivePeriod],
-
   (savingsTargets) => savingsTargets.length > 0,
 );

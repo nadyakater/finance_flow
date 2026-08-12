@@ -93,12 +93,7 @@ export const loadBudgets = createAsyncThunk(
 // Yeni kategori veya kategori ağacı bütçesi oluşturur.
 //
 // Örneğin:
-//
-// Ev
-// 15.000 TL
-// Alt kategoriler dahil
-//
-// gibi bir bütçe kaydı oluşturulabilir.
+// Ev -> 15.000 TL (Alt kategoriler dahil)
 // =====================================================
 
 export const addBudget = createAsyncThunk(
@@ -115,9 +110,6 @@ export const addBudget = createAsyncThunk(
       periodStart,
       periodEnd,
       reportingMode,
-      rolloverEnabled,
-      rolloverSourceBudgetId,
-      rolloverAmountMinor,
     },
     { rejectWithValue },
   ) => {
@@ -131,9 +123,6 @@ export const addBudget = createAsyncThunk(
         periodStart,
         periodEnd,
         reportingMode,
-        rolloverEnabled,
-        rolloverSourceBudgetId,
-        rolloverAmountMinor,
       });
     } catch (error) {
       return rejectWithValue(getBudgetErrorMessage(error));
@@ -165,12 +154,6 @@ export const changeBudgetAmount = createAsyncThunk(
 // 11.GÜN
 // Parent kategori bütçesinin alt kategorileri kapsayıp
 // kapsamayacağını değiştirir.
-//
-// true:
-// Alt kategoriler dahil.
-//
-// false:
-// Yalnız doğrudan seçilen kategori.
 // =====================================================
 
 export const changeBudgetDescendantSetting = createAsyncThunk(
@@ -191,9 +174,6 @@ export const changeBudgetDescendantSetting = createAsyncThunk(
 // =====================================================
 // 11.GÜN
 // Bütçenin aktif veya pasif durumunu değiştirir.
-//
-// Bütçe silinmediği için geçmiş finansal dönem
-// bilgileri korunabilir.
 // =====================================================
 
 export const changeBudgetActiveStatus = createAsyncThunk(
@@ -228,16 +208,6 @@ export const loadSavingsTargets = createAsyncThunk(
 
 // =====================================================
 // 11.GÜN - Tasarruf hedefi oluşturma
-//
-// Kullanıcı:
-//
-// - sabit tutar
-//
-// veya
-//
-// - gelir yüzdesi
-//
-// şeklinde hedef oluşturabilir.
 // =====================================================
 
 export const addSavingsTarget = createAsyncThunk(
@@ -275,9 +245,6 @@ export const addSavingsTarget = createAsyncThunk(
 // =====================================================
 // 11.GÜN
 // Tasarruf hedefini aktif veya pasif yapar.
-//
-// Hedef doğrudan silinmediği için eski dönem
-// bilgileri korunur.
 // =====================================================
 
 export const changeSavingsTargetActiveStatus = createAsyncThunk(

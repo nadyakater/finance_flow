@@ -2,7 +2,7 @@
 // 11.GÜN - Bütçe ve hedef hesaplamaları
 //
 // Kullanıcının kategori bütçesi, kullanılan bütçe,
-// kalan bütçe, kullanım yüzdesi, rollover ve tasarruf
+// kalan bütçe, kullanım yüzdesi ve tasarruf
 // hedefi hesaplamaları bu dosyada yapılır.
 //
 // Firebase veya kullanıcı arayüzü işlemi içermez.
@@ -32,17 +32,13 @@ export function validateBudgetAmountMinor(budgetAmountMinor) {
 // Refund gider kullanımını azaltır.
 //
 // Örneğin:
-//
 // Gider: 5.000 TL
 // Refund: 500 TL
-//
-// Kullanılan bütçe:
-// 4.500 TL
+// Kullanılan bütçe: 4.500 TL
 // =====================================================
 
 export function calculateBudgetSpentMinor({ expenseMinor, refundMinor }) {
   const expense = Number(expenseMinor ?? 0);
-
   const refund = Number(refundMinor ?? 0);
 
   return Math.max(expense - refund, 0);
@@ -55,7 +51,6 @@ export function calculateBudgetSpentMinor({ expenseMinor, refundMinor }) {
 // remaining = budget - spent
 //
 // Bütçe aşılmışsa kalan değer negatif olabilir.
-// Böylece kullanıcı ne kadar aştığını da görebilir.
 // =====================================================
 
 export function calculateRemainingBudgetMinor({ budgetMinor, spentMinor }) {
@@ -67,18 +62,10 @@ export function calculateRemainingBudgetMinor({ budgetMinor, spentMinor }) {
 // Bütçe kullanım yüzdesini hesaplar.
 //
 // spent / budget * 100
-//
-// Örneğin:
-//
-// Bütçe = 10.000 TL
-// Kullanılan = 7.500 TL
-//
-// Kullanım = %75
 // =====================================================
 
 export function calculateBudgetUsagePercent({ budgetMinor, spentMinor }) {
   const budget = Number(budgetMinor ?? 0);
-
   const spent = Number(spentMinor ?? 0);
 
   if (budget <= 0) {
@@ -97,74 +84,25 @@ export function calculateBudgetExceeded({ budgetMinor, spentMinor }) {
   return Number(spentMinor ?? 0) > Number(budgetMinor ?? 0);
 }
 
-// =====================================================
-// 11.GÜN - Rollover
-//
-// Kullanıcı rollover özelliğini açtıysa önceki
-// dönemden kullanılmayan bütçe yeni döneme eklenir.
-//
-// Örneğin:
-//
-// Önceki dönem bütçe = 10.000 TL
-// Kullanılan          = 8.000 TL
-//
-// Kullanılmayan      = 2.000 TL
-//
-// Yeni dönem bütçesi = 10.000 + 2.000
-//                    = 12.000 TL
-// =====================================================
-
-export function calculateRolloverMinor({
-  previousBudgetMinor,
-  previousSpentMinor,
-  rolloverEnabled,
-}) {
-  if (!rolloverEnabled) {
-    return 0;
-  }
-
-  const unusedMinor =
-    Number(previousBudgetMinor ?? 0) - Number(previousSpentMinor ?? 0);
-
-  // =====================================================
-  // 11.GÜN
-  // Önceki dönem bütçesi aşılmışsa negatif tutar
-  // sonraki döneme rollover olarak aktarılmaz.
-  // =====================================================
-
-  return Math.max(unusedMinor, 0);
-}
+/* 13. gün düzenleme - Rollover devir hesaplama fonksiyonu (calculateRolloverMinor) kaldırıldı. */
 
 // =====================================================
 // 11.GÜN
-// Temel bütçe ile rollover tutarını birleştirerek
-// kullanıcının o dönemde kullanabileceği gerçek
-// bütçe limitini hesaplar.
+// Kullanıcının o dönemde kullanabileceği gerçek bütçe limitini verir.
 // =====================================================
 
-export function calculateEffectiveBudgetMinor({
-  baseBudgetMinor,
-  rolloverMinor,
-}) {
-  return Number(baseBudgetMinor ?? 0) + Number(rolloverMinor ?? 0);
+export function calculateEffectiveBudgetMinor({ baseBudgetMinor }) {
+  return Number(baseBudgetMinor ?? 0);
 }
 
 // =====================================================
 // 11.GÜN - Tasarruf oranı
 //
-// Tasarruf oranı:
-//
-// Net Nakit / Toplam Gelir * 100
-//
-// Gelir sıfırsa yüzde hesaplanmaz.
-//
-// PDF kabul ölçütünde özellikle gelir sıfır olduğunda
-// savings rate gösterilmemesi istenir.
+// Tasarruf oranı: Net Nakit / Toplam Gelir * 100
 // =====================================================
 
 export function calculateSavingsRate({ totalIncomeMinor, netCashFlowMinor }) {
   const income = Number(totalIncomeMinor ?? 0);
-
   const netCashFlow = Number(netCashFlowMinor ?? 0);
 
   if (income <= 0) {
@@ -176,8 +114,7 @@ export function calculateSavingsRate({ totalIncomeMinor, netCashFlowMinor }) {
 
 // =====================================================
 // 11.GÜN
-// Kullanıcı tasarruf hedefini doğrudan tutar olarak
-// belirlediyse hedefe kalan tutarı hesaplar.
+// Tasarruf hedefine kalan tutarı hesaplar.
 // =====================================================
 
 export function calculateSavingsTargetRemainingMinor({
@@ -189,8 +126,7 @@ export function calculateSavingsTargetRemainingMinor({
 
 // =====================================================
 // 11.GÜN
-// Kullanıcının belirlediği tasarruf tutarı hedefine
-// ne kadar ulaştığını yüzde olarak hesaplar.
+// Tasarruf hedefi ilerleme yüzdesini hesaplar.
 // =====================================================
 
 export function calculateSavingsTargetProgressPercent({
@@ -209,14 +145,7 @@ export function calculateSavingsTargetProgressPercent({
 // =====================================================
 // 11.GÜN
 // Tasarruf hedefi gelir yüzdesi olarak tanımlandıysa
-// kullanıcının hedeflediği tasarruf tutarını hesaplar.
-//
-// Örneğin:
-//
-// Gelir = 30.000 TL
-// Hedef = %20
-//
-// Tasarruf hedefi = 6.000 TL
+// hedef tutarını hesaplar.
 // =====================================================
 
 export function calculateSavingsTargetFromIncomePercent({
@@ -224,7 +153,6 @@ export function calculateSavingsTargetFromIncomePercent({
   targetPercent,
 }) {
   const income = Number(totalIncomeMinor ?? 0);
-
   const percent = Number(targetPercent ?? 0);
 
   if (income <= 0 || percent <= 0) {
@@ -236,15 +164,7 @@ export function calculateSavingsTargetFromIncomePercent({
 
 // =====================================================
 // 11.GÜN
-// Tasarruf hedefi türünün geçerli olup olmadığını
-// kontrol eder.
-//
-// Kullanıcı:
-//
-// - sabit tutar
-// - gelir yüzdesi
-//
-// seçeneklerinden birini kullanabilir.
+// Tasarruf hedefi türünün geçerli olup olmadığını kontrol eder.
 // =====================================================
 
 export function validateSavingsTargetType(targetType) {
@@ -259,8 +179,7 @@ export function validateSavingsTargetType(targetType) {
 
 // =====================================================
 // 11.GÜN
-// Gelir yüzdesi şeklindeki tasarruf hedefinin
-// geçerli aralıkta olup olmadığını kontrol eder.
+// Gelir yüzdesi hedefinin aralığını kontrol eder.
 // =====================================================
 
 export function validateSavingsTargetPercent(targetPercent) {
@@ -281,21 +200,15 @@ export function validateSavingsTargetPercent(targetPercent) {
 // 11.GÜN
 // Bütçe kullanımına ait tüm temel bilgileri tek seferde
 // hesaplayan yardımcı fonksiyon.
-//
-// UI tarafında aynı hesapları tekrar tekrar yazmamak
-// için kullanılabilir.
 // =====================================================
 
 export function calculateBudgetSummary({
   budgetMinor,
   expenseMinor,
   refundMinor,
-  rolloverMinor = 0,
 }) {
   const effectiveBudgetMinor = calculateEffectiveBudgetMinor({
     baseBudgetMinor: budgetMinor,
-
-    rolloverMinor,
   });
 
   const spentMinor = calculateBudgetSpentMinor({
@@ -305,35 +218,25 @@ export function calculateBudgetSummary({
 
   const remainingMinor = calculateRemainingBudgetMinor({
     budgetMinor: effectiveBudgetMinor,
-
     spentMinor,
   });
 
   const usagePercent = calculateBudgetUsagePercent({
     budgetMinor: effectiveBudgetMinor,
-
     spentMinor,
   });
 
   const exceeded = calculateBudgetExceeded({
     budgetMinor: effectiveBudgetMinor,
-
     spentMinor,
   });
 
   return {
     baseBudgetMinor: Number(budgetMinor ?? 0),
-
-    rolloverMinor: Number(rolloverMinor ?? 0),
-
     effectiveBudgetMinor,
-
     spentMinor,
-
     remainingMinor,
-
     usagePercent,
-
     exceeded,
   };
 }

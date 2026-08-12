@@ -148,6 +148,25 @@ function TransactionTable({
     );
   };
 
+  // 13. gün düzenleme - Kayıt silme işlemi ekledi
+  const handleDelete = async (transactionId) => {
+    if (!window.confirm("Bu kaydı tamamen silmek istediğinize emin misiniz?")) {
+      return;
+    }
+
+    if (!currentUser?.id) {
+      return;
+    }
+
+    await dispatch(
+      removeTransaction({
+        userId: currentUser.id,
+
+        transactionId,
+      }),
+    );
+  };
+
   return (
     <>
       <h2 className="section-title table-title">Gelir ve Gider Kayıtları</h2>
@@ -246,13 +265,26 @@ function TransactionTable({
                           </td>
 
                           <td>
-                            <button
-                              className="danger-button"
-                              type="button"
-                              onClick={() => handleArchive(transaction.id)}
-                            >
-                              Arşivle
-                            </button>
+                            {/* 13. gün düzenleme - Butonlar yan yana hizalandı ve Sil butonu eklendi */}
+                            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                              <button
+                                className="danger-button"
+                                type="button"
+                                onClick={() => handleArchive(transaction.id)}
+                              >
+                                Arşivle
+                              </button>
+
+                              {/* 13. gün düzenleme */}
+                              <button
+                                className="danger-button"
+                                type="button"
+                                style={{ backgroundColor: "#333333" }}
+                                onClick={() => handleDelete(transaction.id)}
+                              >
+                                Sil
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

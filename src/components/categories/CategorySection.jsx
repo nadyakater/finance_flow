@@ -180,6 +180,38 @@ function CategorySection({
     }
   };
 
+  // 13. gün düzenleme - Ağaç üzerinden doğrudan silme butonuna tıklanınca çalışır
+  const handleDeleteCategoryById = async (categoryId) => {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    const targetCategory = activeCategories.find((cat) => cat.id === categoryId);
+    const categoryName = targetCategory ? targetCategory.name : "Bu";
+
+    const shouldDelete = window.confirm(
+      `"${categoryName}" kategorisini ve alt kategorilerini silmek istediğinize emin misiniz?`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    const result = await dispatch(
+      archiveCategoryNode({
+        userId: currentUser.id,
+        categoryId,
+      }),
+    );
+
+    if (archiveCategoryNode.fulfilled.match(result)) {
+      if (selectedCategoryId === categoryId) {
+        setSelectedCategoryId("");
+        setMoveParentId("");
+      }
+    }
+  };
+
   const handleRestoreCategory = async (category) => {
     if (!currentUser?.id) {
       return;
@@ -239,6 +271,7 @@ function CategorySection({
         setSelectedCategoryId={setSelectedCategoryId}
         categoryTotals={categoryTotals}
         formatAmount={formatAmount}
+        onDeleteCategory={handleDeleteCategoryById} /* 13. gün düzenleme */
       />
 
       <CategoryActions
