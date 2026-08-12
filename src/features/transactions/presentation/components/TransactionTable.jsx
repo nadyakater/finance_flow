@@ -169,28 +169,35 @@ function TransactionTable({
               <section key={monthKey} className="category-management-section">
                 <h3 className="archive-title">{formatMonthLabel(monthKey)}</h3>
 
-                {/* DÜZENLEME - Her ay için yalnızca gelir, gider ve net toplam bilgileri gösterilir. */}
-                <div className="category-form-grid">
-                  <div className="category-action-panel">
-                    <p className="selected-category-text">Aylık Gelir</p>
+                {/* 12.GÜN - 3.24 - Aylık özet kartları tabloya değmesin diye kartlar ile tablo arasına boşluk eklendi. */}
+                <div
+                  className="dashboard-summary-grid"
+                  style={{
+                    marginBottom: "18px",
+                  }}
+                >
+                  <div className="dashboard-summary-card">
+                    <div className="dashboard-card-title">Aylık Gelir</div>
 
-                    <strong>{formatAmount(monthlyTotals.incomeMinor)} ₺</strong>
+                    <div className="dashboard-card-value">
+                      {formatAmount(monthlyTotals.incomeMinor)} ₺
+                    </div>
                   </div>
 
-                  <div className="category-action-panel">
-                    <p className="selected-category-text">Aylık Gider</p>
+                  <div className="dashboard-summary-card">
+                    <div className="dashboard-card-title">Aylık Gider</div>
 
-                    <strong>
+                    <div className="dashboard-card-value">
                       {formatAmount(monthlyTotals.expenseMinor)} ₺
-                    </strong>
+                    </div>
                   </div>
 
-                  <div className="category-action-panel">
-                    <p className="selected-category-text">Aylık Toplam</p>
+                  <div className="dashboard-summary-card">
+                    <div className="dashboard-card-title">Aylık Toplam</div>
 
-                    <strong>
+                    <div className="dashboard-card-value">
                       {formatAmount(monthlyTotals.netTotalMinor)} ₺
-                    </strong>
+                    </div>
                   </div>
                 </div>
 
@@ -264,23 +271,30 @@ function TransactionTable({
           <section className="category-management-section">
             <h3 className="archive-title">Genel Toplam</h3>
 
-            <div className="category-form-grid">
-              <div className="category-action-panel">
-                <p className="selected-category-text">Genel Gelir</p>
+            {/* 12.GÜN - 3.24 - Genel toplam alanı üç eşit özet kartı şeklinde gösterildi. */}
+            <div className="dashboard-summary-grid">
+              <div className="dashboard-summary-card">
+                <div className="dashboard-card-title">Genel Gelir</div>
 
-                <strong>{formatAmount(generalTotals.incomeMinor)} ₺</strong>
+                <div className="dashboard-card-value">
+                  {formatAmount(generalTotals.incomeMinor)} ₺
+                </div>
               </div>
 
-              <div className="category-action-panel">
-                <p className="selected-category-text">Genel Gider</p>
+              <div className="dashboard-summary-card">
+                <div className="dashboard-card-title">Genel Gider</div>
 
-                <strong>{formatAmount(generalTotals.expenseMinor)} ₺</strong>
+                <div className="dashboard-card-value">
+                  {formatAmount(generalTotals.expenseMinor)} ₺
+                </div>
               </div>
 
-              <div className="calculated-net-total">
-                <span>Genel Toplam</span>
+              <div className="dashboard-summary-card">
+                <div className="dashboard-card-title">Genel Toplam</div>
 
-                <strong>{formatAmount(generalTotals.netTotalMinor)} ₺</strong>
+                <div className="dashboard-card-value">
+                  {formatAmount(generalTotals.netTotalMinor)} ₺
+                </div>
               </div>
             </div>
           </section>

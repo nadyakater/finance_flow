@@ -2,7 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import {
   calculateDashboardTotals,
-} from "./dashboardCalculations";
+} from "../domain/dashboardCalculations";
 
 // =====================================================
 // 12.GÜN - 3.19

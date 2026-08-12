@@ -17,7 +17,7 @@ import reportingReducer from "../features/reporting/presentation/reportingSlice"
 // store içerisine eklendi.
 // =====================================================
 
-import dashboardReducer from "../features/dashboard/dashboardSlice";
+import dashboardReducer from "../features/dashboard/presentation/dashboardSlice";
 
 // =====================================================
 // 11.GÜN
@@ -96,7 +96,6 @@ export const store = configureStore({
     //
     // saklanır.
     // =====================================================
-
     recurring: recurringReducer,
 
     // =====================================================

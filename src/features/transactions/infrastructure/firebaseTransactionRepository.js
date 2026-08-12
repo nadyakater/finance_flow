@@ -7,7 +7,6 @@ import {
   query,
   runTransaction,
   serverTimestamp,
-  updateDoc,
 } from "firebase/firestore";
 
 import { db } from "../../../firebase";
@@ -1939,10 +1938,23 @@ export async function createRefundTransaction(
   );
 }
 
+// 12.GÜN - 3.23 - Transaction arşivlenirken bağlı taksit planının da aynı Firestore transaction içerisinde arşivlenmesi sağlandı.
 export async function archiveTransaction(
   userId,
   transactionId,
 ) {
+  if (!userId) {
+    throw new Error(
+      "TRANSACTION_USER_REQUIRED",
+    );
+  }
+
+  if (!transactionId) {
+    throw new Error(
+      "TRANSACTION_NOT_FOUND",
+    );
+  }
+
   const transactionReference =
     doc(
       db,
@@ -1952,38 +1964,102 @@ export async function archiveTransaction(
       transactionId,
     );
 
-  const transactionSnapshot =
-    await getDoc(
-      transactionReference,
-    );
+  await runTransaction(
+    db,
+    async (
+      firestoreTransaction,
+    ) => {
+      const transactionSnapshot =
+        await firestoreTransaction.get(
+          transactionReference,
+        );
 
-  if (
-    !transactionSnapshot.exists()
-  ) {
-    throw new Error(
-      "TRANSACTION_NOT_FOUND",
-    );
-  }
+      if (
+        !transactionSnapshot.exists()
+      ) {
+        throw new Error(
+          "TRANSACTION_NOT_FOUND",
+        );
+      }
 
-  const transactionData =
-    transactionSnapshot.data();
+      const transactionData =
+        transactionSnapshot.data();
 
-  await updateDoc(
-    transactionReference,
-    {
-      isDeleted: true,
+      const installmentPlanId =
+        transactionData.installmentPlanId ??
+        "";
 
-      updatedBy:
-        userId,
+      let installmentPlanReference =
+        null;
 
-      updatedAtUtc:
-        serverTimestamp(),
+      let installmentPlanSnapshot =
+        null;
 
-      version:
-        Number(
-          transactionData.version ??
-            1,
-        ) + 1,
+      if (installmentPlanId) {
+        installmentPlanReference =
+          doc(
+            db,
+            "users",
+            userId,
+            "installmentPlans",
+            installmentPlanId,
+          );
+
+        installmentPlanSnapshot =
+          await firestoreTransaction.get(
+            installmentPlanReference,
+          );
+      }
+
+      firestoreTransaction.update(
+        transactionReference,
+        {
+          isDeleted: true,
+
+          updatedBy:
+            userId,
+
+          updatedAtUtc:
+            serverTimestamp(),
+
+          version:
+            Number(
+              transactionData.version ??
+                1,
+            ) + 1,
+        },
+      );
+
+      if (
+        installmentPlanReference &&
+        installmentPlanSnapshot?.exists()
+      ) {
+        const installmentPlanData =
+          installmentPlanSnapshot.data();
+
+        if (
+          !installmentPlanData.isDeleted
+        ) {
+          firestoreTransaction.update(
+            installmentPlanReference,
+            {
+              isDeleted: true,
+
+              updatedBy:
+                userId,
+
+              updatedAtUtc:
+                serverTimestamp(),
+
+              version:
+                Number(
+                  installmentPlanData.version ??
+                    1,
+                ) + 1,
+            },
+          );
+        }
+      }
     },
   );
 

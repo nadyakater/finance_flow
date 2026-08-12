@@ -386,9 +386,13 @@ function BudgetSection() {
 
     if (addBudget.fulfilled.match(result)) {
       setCategoryId("");
+
       setBudgetAmount("");
+
       setIncludeDescendants(true);
+
       setRolloverEnabled(false);
+
       setRolloverSourceBudgetId("");
     }
   };
@@ -548,8 +552,11 @@ function BudgetSection() {
 
     if (addSavingsTarget.fulfilled.match(result)) {
       setSavingsTargetName("");
+
       setSavingsTargetType("amount");
+
       setSavingsTargetAmount("");
+
       setSavingsTargetPercent("");
     }
   };
@@ -659,10 +666,6 @@ function BudgetSection() {
           Alt kategorileri de bütçeye dahil et
         </label>
 
-        {/* =====================================================
-            11.GÜN - 3.18 ROLLOVER
-            ===================================================== */}
-
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -712,12 +715,6 @@ function BudgetSection() {
                 </select>
               </>
             )}
-
-            {/* =================================================
-                11.GÜN
-                Kullanıcı bir geçmiş bütçe seçtiğinde
-                rollover'ın nasıl hesaplandığı açıkça gösterilir.
-                ================================================= */}
 
             {selectedRolloverBudget && (
               <div className="installment-summary-panel">
@@ -843,12 +840,6 @@ function BudgetSection() {
             <strong>Rollover:</strong> {formatAmount(budget.rolloverMinor)} ₺
           </p>
 
-          {/* =================================================
-                11.GÜN
-                Rollover kullanılan bütçelerde kaynağın
-                Firestore kaydı da görünür.
-                ================================================= */}
-
           {budget.rolloverEnabled && budget.rolloverSourceBudgetId && (
             <p>
               <strong>Rollover Kaynağı:</strong> Önceki dönem bütçesi
@@ -882,50 +873,85 @@ function BudgetSection() {
             <p className="form-error">Bütçe limiti aşıldı.</p>
           )}
 
-          <input
-            className="form-input"
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="Yeni bütçe limiti"
-            value={updatedBudgetAmounts[budget.id] ?? ""}
-            onChange={(event) =>
-              setUpdatedBudgetAmounts((currentValues) => ({
-                ...currentValues,
+          {/* 12.GÜN - 3.24 - Bütçe işlem butonları daha kısa ve yan yana duracak şekilde düzenlendi. */}
+          <div className="category-action-panel">
+            <label
+              className="form-label"
+              htmlFor={`budget-update-${budget.id}`}
+            >
+              Yeni Bütçe Limiti
+            </label>
 
-                [budget.id]: event.target.value,
-              }))
-            }
-          />
+            <input
+              id={`budget-update-${budget.id}`}
+              className="form-input"
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="Yeni bütçe limiti"
+              value={updatedBudgetAmounts[budget.id] ?? ""}
+              onChange={(event) =>
+                setUpdatedBudgetAmounts((currentValues) => ({
+                  ...currentValues,
 
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => handleBudgetAmountUpdate(budget)}
-            disabled={isMutating}
-          >
-            Limiti Güncelle
-          </button>
+                  [budget.id]: event.target.value,
+                }))
+              }
+            />
 
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => handleDescendantSettingChange(budget)}
-            disabled={isMutating}
-          >
-            {budget.includeDescendants
-              ? "Alt Kategorileri Hariç Tut"
-              : "Alt Kategorileri Dahil Et"}
-          </button>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+                marginTop: "12px",
+              }}
+            >
+              <button
+                className="add-button"
+                type="button"
+                onClick={() => handleBudgetAmountUpdate(budget)}
+                disabled={isMutating}
+                style={{
+                  width: "auto",
+                  minWidth: "190px",
+                  padding: "12px 18px",
+                }}
+              >
+                Limiti Güncelle
+              </button>
 
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => handleBudgetStatusChange(budget)}
-            disabled={isMutating}
-          >
-            {budget.isActive ? "Bütçeyi Pasif Yap" : "Bütçeyi Aktif Yap"}
-          </button>
+              <button
+                className="add-button"
+                type="button"
+                onClick={() => handleDescendantSettingChange(budget)}
+                disabled={isMutating}
+                style={{
+                  width: "auto",
+                  minWidth: "240px",
+                  padding: "12px 18px",
+                }}
+              >
+                {budget.includeDescendants
+                  ? "Alt Kategorileri Hariç Tut"
+                  : "Alt Kategorileri Dahil Et"}
+              </button>
+
+              <button
+                className="add-button"
+                type="button"
+                onClick={() => handleBudgetStatusChange(budget)}
+                disabled={isMutating}
+                style={{
+                  width: "auto",
+                  minWidth: "190px",
+                  padding: "12px 18px",
+                }}
+              >
+                {budget.isActive ? "Bütçeyi Pasif Yap" : "Bütçeyi Aktif Yap"}
+              </button>
+            </div>
+          </div>
         </div>
       ))}
 
