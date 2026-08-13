@@ -520,7 +520,7 @@ function BudgetSection() {
           </p>
 
           {budget.exceeded && (
-            <p className="form-error">Bütçe limiti aşıldı.</p>
+            <p className="budget-exceeded-alert">Bütçe hedefi aşıldı!</p>
           )}
 
           <div className="category-action-panel">

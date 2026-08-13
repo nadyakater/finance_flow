@@ -225,6 +225,10 @@ function Anasayfa({ onNavigateAdmin, onNavigateDashboard }) {
 
   const [includeDescendants, setIncludeDescendants] = useState(true);
 
+  // Kullanıcı ana sayfada aynı anda yalnızca ihtiyaç duyduğu çalışma alanını görür.
+  // Bu düzenleme mevcut özellikleri kaldırmadan ekran kalabalığını azaltır.
+  const [activeHomeSection, setActiveHomeSection] = useState("summary");
+
   const isLoggingOut = authStatus === "loading";
 
   const filteredTransactions = useMemo(() => {
@@ -297,95 +301,78 @@ function Anasayfa({ onNavigateAdmin, onNavigateDashboard }) {
   };
 
   return (
-    <div className="page-container dashboard-page-container">
-      <div className="welcome-card transaction-card">
-        <div className="dashboard-header">
+    <div className="page-container dashboard-page-container app-shell">
+      <main className="welcome-card transaction-card main-workspace">
+        <header className="dashboard-header app-topbar">
           <div className="dashboard-header-content">
-            <h1 className="welcome-title">Hoş Geldiniz</h1>
-
+            <span className="app-eyebrow">FinanceFlow</span>
+            <h1 className="welcome-title">Finans Yönetimi</h1>
             <p className="page-description">
-              FinanceFlow ana sayfasına giriş yapıldı.
+              Gelir, gider ve finansal durumunuzu tek ekrandan yönetin.
             </p>
-
             <p className="user-email">{currentUser?.email}</p>
           </div>
 
           <div className="dashboard-header-actions">
-            {/* =====================================================
-    12.GÜN - 3.19
-    Dashboard ve analizler ekranına geçiş yapılabilmesi
-    için Dashboard butonu eklendi.
-    ===================================================== */}
-
             <button
-              className="admin-button"
+              className="admin-button topbar-action-button"
               type="button"
               onClick={onNavigateDashboard}
             >
-              Dashboard
+              Analizler
             </button>
 
             <button
-              className="admin-button"
+              className="admin-button topbar-action-button secondary-topbar-button"
               type="button"
               onClick={onNavigateAdmin}
             >
-              Admin Paneli
+              Yönetim
             </button>
 
             <button
-              className="logout-button dashboard-logout-button"
+              className="logout-button dashboard-logout-button topbar-logout-button"
               type="button"
               onClick={handleLogout}
               disabled={isLoggingOut}
             >
-              {isLoggingOut ? "Çıkış Yapılıyor..." : "Çıkış Yap"}
+              {isLoggingOut ? "Çıkış Yapılıyor..." : "Çıkış"}
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* =====================================================
-            11.GÜN
-            Finans Özeti ana sayfanın en üst bölümünde
-            gösterilmeye devam eder.
-            ===================================================== */}
+        <nav className="home-section-tabs" aria-label="Ana sayfa bölümleri">
+          <button
+            type="button"
+            className={`home-section-tab ${activeHomeSection === "summary" ? "home-section-tab-active" : ""}`}
+            onClick={() => setActiveHomeSection("summary")}
+          >
+            <span className="home-section-tab-title">Özet</span>
+            <span className="home-section-tab-description">Genel finansal durum</span>
+          </button>
 
-        <FinanceSummary
-          totalIncomeMinor={totalIncomeMinor}
-          netExpenseMinor={netExpenseMinor}
-          totalRefundMinor={totalRefundMinor}
-          netBalanceMinor={netBalanceMinor}
-          totalDebtMinor={totalDebtMinor}
-          formatAmount={formatAmount}
-        />
+          <button
+            type="button"
+            className={`home-section-tab ${activeHomeSection === "new-record" ? "home-section-tab-active" : ""}`}
+            onClick={() => setActiveHomeSection("new-record")}
+          >
+            <span className="home-section-tab-title">Yeni Kayıt</span>
+            <span className="home-section-tab-description">Gelir veya gider ekle</span>
+          </button>
 
-        {/* =====================================================
-            11.GÜN
-            Finansal dönem ayarları Finans Özeti'nin
-            hemen altında tutulur.
-            ===================================================== */}
-
-        <ReportingPeriodSettings currentUser={currentUser} />
-
-        {/* =====================================================
-            11.GÜN
-            3.17 kapsamındaki Düzenli Giderler ve Abonelikler
-            bölümü Ana Sayfa'dan kaldırıldı.
-
-            Bu yönetim alanı artık Admin Paneli içerisinde
-            gösterilmektedir.
-            ===================================================== */}
-
-        <TransactionForm
-          getTodayDateValue={getTodayDateValue}
-          convertInputAmountToMinor={convertInputAmountToMinor}
-          formatAmount={formatAmount}
-        />
+          <button
+            type="button"
+            className={`home-section-tab ${activeHomeSection === "records" ? "home-section-tab-active" : ""}`}
+            onClick={() => setActiveHomeSection("records")}
+          >
+            <span className="home-section-tab-title">Kayıtlar & Arama</span>
+            <span className="home-section-tab-description">Filtrele, ara ve incele</span>
+          </button>
+        </nav>
 
         {transactionSuccessMessage && (
-          <div className="success-message">
+          <div className="success-message floating-feedback-message">
             <span>{transactionSuccessMessage}</span>
-
             <button
               type="button"
               className="message-close-button"
@@ -398,9 +385,8 @@ function Anasayfa({ onNavigateAdmin, onNavigateDashboard }) {
         )}
 
         {transactionError && (
-          <div className="error-message-panel" role="alert">
+          <div className="error-message-panel floating-feedback-message" role="alert">
             <span>{transactionError}</span>
-
             <button
               type="button"
               className="message-close-button"
@@ -412,31 +398,97 @@ function Anasayfa({ onNavigateAdmin, onNavigateDashboard }) {
           </div>
         )}
 
-        <CategoryFilter
-          selectedFilterCategoryIds={selectedFilterCategoryIds}
-          setSelectedFilterCategoryIds={setSelectedFilterCategoryIds}
-          includeDescendants={includeDescendants}
-          setIncludeDescendants={setIncludeDescendants}
-          activeCategories={activeCategories}
-          handleCategoryFilterChange={handleCategoryFilterChange}
-        />
+        {activeHomeSection === "summary" && (
+          <section className="home-section-content summary-workspace">
+            <div className="workspace-heading">
+              <div>
+                <span className="workspace-kicker">Genel görünüm</span>
+                <h2>Finansal Durumunuz</h2>
+                <p>Aktif döneme ait temel tutarları ve dönem ayarlarını burada görebilirsiniz.</p>
+              </div>
+              <button
+                type="button"
+                className="workspace-primary-action"
+                onClick={() => setActiveHomeSection("new-record")}
+              >
+                + Yeni Kayıt Ekle
+              </button>
+            </div>
 
-        {/* 12.GÜN - 3.21 - Kullanıcının tüm finansal işlemler üzerinde global arama yapabilmesi sağlandı. */}
-        <GlobalSearch
-          formatAmount={formatAmount}
-          formatTransactionDate={formatTransactionDate}
-        />
+            <FinanceSummary
+              totalIncomeMinor={totalIncomeMinor}
+              netExpenseMinor={netExpenseMinor}
+              totalRefundMinor={totalRefundMinor}
+              netBalanceMinor={netBalanceMinor}
+              totalDebtMinor={totalDebtMinor}
+              formatAmount={formatAmount}
+            />
 
-        <TransactionTable
-          transactionLoadStatus={transactionLoadStatus}
-          transactions={transactions}
-          filteredTransactions={filteredTransactions}
-          selectedFilterCategoryIds={selectedFilterCategoryIds}
-          getTransactionCategoryLabel={getTransactionCategoryLabel}
-          formatAmount={formatAmount}
-          formatTransactionDate={formatTransactionDate}
-        />
-      </div>
+            <div className="settings-workspace-card">
+              <ReportingPeriodSettings currentUser={currentUser} />
+            </div>
+          </section>
+        )}
+
+        {activeHomeSection === "new-record" && (
+          <section className="home-section-content record-workspace">
+            <div className="workspace-heading">
+              <div>
+                <span className="workspace-kicker">Kayıt oluştur</span>
+                <h2>Yeni Finansal Kayıt</h2>
+                <p>İşlem türünü seçin ve yalnızca ilgili bilgileri doldurun.</p>
+              </div>
+            </div>
+
+            <TransactionForm
+              getTodayDateValue={getTodayDateValue}
+              convertInputAmountToMinor={convertInputAmountToMinor}
+              formatAmount={formatAmount}
+            />
+          </section>
+        )}
+
+        {activeHomeSection === "records" && (
+          <section className="home-section-content records-workspace">
+            <div className="workspace-heading">
+              <div>
+                <span className="workspace-kicker">Kayıt yönetimi</span>
+                <h2>Kayıtlar ve Arama</h2>
+                <p>Kategoriye göre daraltın, içerikte arama yapın ve geçmiş işlemlerinizi inceleyin.</p>
+              </div>
+              <div className="record-count-pill">
+                {filteredTransactions.length} kayıt
+              </div>
+            </div>
+
+            <div className="records-tools-grid">
+              <CategoryFilter
+                selectedFilterCategoryIds={selectedFilterCategoryIds}
+                setSelectedFilterCategoryIds={setSelectedFilterCategoryIds}
+                includeDescendants={includeDescendants}
+                setIncludeDescendants={setIncludeDescendants}
+                activeCategories={activeCategories}
+                handleCategoryFilterChange={handleCategoryFilterChange}
+              />
+
+              <GlobalSearch
+                formatAmount={formatAmount}
+                formatTransactionDate={formatTransactionDate}
+              />
+            </div>
+
+            <TransactionTable
+              transactionLoadStatus={transactionLoadStatus}
+              transactions={transactions}
+              filteredTransactions={filteredTransactions}
+              selectedFilterCategoryIds={selectedFilterCategoryIds}
+              getTransactionCategoryLabel={getTransactionCategoryLabel}
+              formatAmount={formatAmount}
+              formatTransactionDate={formatTransactionDate}
+            />
+          </section>
+        )}
+      </main>
     </div>
   );
 }

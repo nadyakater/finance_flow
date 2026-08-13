@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { calculateDashboard } from "../application/dashboardThunks";
@@ -43,6 +43,8 @@ import ProductPriceChart from "./components/ProductPriceChart";
 
 export default function Dashboard({ onNavigateHome, onLogout }) {
   const dispatch = useDispatch();
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // 12.GÜN - 3.20 - Dashboard filtrelerine uygun işlemler Redux selector üzerinden alınır.
   const filteredTransactions = useSelector(selectFilteredDashboardTransactions);
@@ -218,10 +220,11 @@ export default function Dashboard({ onNavigateHome, onLogout }) {
   };
 
   return (
-    <div className="page-container dashboard-page-container">
-      <div className="welcome-card transaction-card">
-        <div className="dashboard-header">
+    <div className="page-container dashboard-page-container analytics-page app-shell">
+      <main className="welcome-card transaction-card main-workspace analytics-workspace">
+        <header className="dashboard-header app-topbar">
           <div className="dashboard-header-content">
+            <span className="app-eyebrow">FinanceFlow · Analiz</span>
             <h1 className="welcome-title">Finansal Dashboard</h1>
 
             <p className="page-description">
@@ -250,30 +253,30 @@ export default function Dashboard({ onNavigateHome, onLogout }) {
               </button>
             )}
           </div>
-        </div>
+        </header>
 
         {/* 12.GÜN - 3.20 - Dashboard analizlerinde kullanılacak filtre alanları oluşturuldu. */}
-        <section className="category-management-section">
-          <div className="filter-heading-row">
+        <section className="dashboard-filter-panel">
+          <div className="filter-heading-row dashboard-filter-heading">
             <div>
+              <span className="workspace-kicker">Görünümü Özelleştir</span>
               <h2 className="section-title">Dashboard Filtreleri</h2>
-
               <p className="selected-category-text">
-                Grafik ve finansal özetlerde kullanılacak kayıtları
-                filtreleyebilirsiniz.
+                {filteredTransactions.length} kayıt şu an analize dahil ediliyor.
               </p>
             </div>
-
-            <button
-              className="filter-clear-button"
-              type="button"
-              onClick={() => dispatch(clearDashboardFilters())}
-            >
-              Filtreleri Temizle
-            </button>
+            <div className="dashboard-filter-actions">
+              <button className="filter-clear-button" type="button" onClick={() => dispatch(clearDashboardFilters())}>
+                Temizle
+              </button>
+              <button className="dashboard-filter-toggle" type="button" onClick={() => setFiltersOpen((open) => !open)}>
+                {filtersOpen ? "Filtreleri Gizle" : "Filtreleri Göster"}
+              </button>
+            </div>
           </div>
 
-          <div className="category-form-grid">
+          {filtersOpen && <div className="dashboard-filter-body">
+          <div className="category-form-grid dashboard-filter-grid">
             <div>
               <label className="form-label" htmlFor="dashboardPeriodMode">
                 Tarih Dönemi
@@ -508,10 +511,10 @@ export default function Dashboard({ onNavigateHome, onLogout }) {
             </p>
           )}
 
-          <p className="selected-category-text">
-            Filtreye uyan kayıt sayısı:{" "}
-            <strong>{filteredTransactions.length}</strong>
+          <p className="selected-category-text dashboard-filter-result">
+            Filtreye uyan kayıt sayısı: <strong>{filteredTransactions.length}</strong>
           </p>
+          </div>}
         </section>
 
         {dashboardStatus === "loading" && (
@@ -525,6 +528,10 @@ export default function Dashboard({ onNavigateHome, onLogout }) {
         )}
 
         {/* 12.GÜN - 3.19 - Finansal özet kartları gösterildi. */}
+        <div className="dashboard-content-heading">
+          <div><span className="workspace-kicker">Genel Durum</span><h2>Finansal Özet</h2></div>
+          <p>Seçili döneme ait temel finansal göstergeler.</p>
+        </div>
         <div className="dashboard-summary-grid">
           <div className="dashboard-summary-card">
             <div className="dashboard-card-title">Toplam Gelir</div>
@@ -587,14 +594,15 @@ export default function Dashboard({ onNavigateHome, onLogout }) {
           </div>
         </div>
 
-        {/* 12.GÜN - 3.20 - Filtrelenen gelir ve gider toplamları grafik olarak gösterildi. */}
-        <IncomeExpenseChart />
-
-        {/* 12.GÜN - 3.20 - Giderlerin kategori dağılımı halka grafik üzerinde gösterildi. */}
-        <CategoryExpenseChart />
-
-        {/* 12.GÜN - 3.20 - Seçilen ürünün paket ve normalize birim fiyat geçmişi grafik olarak gösterildi. */}
-        <ProductPriceChart />
+        <div className="dashboard-content-heading dashboard-charts-heading">
+          <div><span className="workspace-kicker">Grafikler</span><h2>Harcama ve Fiyat Analizi</h2></div>
+          <p>Gelir-gider dengesi, kategori dağılımı ve ürün fiyat geçmişini karşılaştırın.</p>
+        </div>
+        <div className="dashboard-chart-grid">
+          <div className="dashboard-chart-grid-item"><IncomeExpenseChart /></div>
+          <div className="dashboard-chart-grid-item"><CategoryExpenseChart /></div>
+          <div className="dashboard-chart-grid-item dashboard-chart-grid-item-wide"><ProductPriceChart /></div>
+        </div>
 
         {/* 12.GÜN - 3.20 - Grafikte seçilen gelir veya gider kayıtları drill-down olarak gösterildi. */}
         {selectedChartTransactionType && (
@@ -672,7 +680,7 @@ export default function Dashboard({ onNavigateHome, onLogout }) {
             yukarıdaki finansal özet kartlarında gösterilmektedir.
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
